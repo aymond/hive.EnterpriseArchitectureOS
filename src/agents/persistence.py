@@ -57,6 +57,7 @@ def persistence_agent(state: AgentState):
             content = content[3:-3].strip()
             
         graph_data = json.loads(content)
+        tenant_id = state.get("tenant_id")
         
         # 1. Persist Capabilities
         for cap in graph_data.get("capabilities", []):
@@ -65,21 +66,22 @@ def persistence_agent(state: AgentState):
                 logger.warning("Skipping capability with null name.")
                 continue
                 
-            neo4j_client.upsert_capability(cap.get("domain", "General"), name, cap.get("description", ""))
+            neo4j_client.upsert_capability(tenant_id, cap.get("domain", "General"), name, cap.get("description", ""))
             if cap.get("parent_capability_name"):
-                neo4j_client.set_capability_parent(cap.get("parent_capability_name"), name)
+                neo4j_client.set_capability_parent(tenant_id, cap.get("parent_capability_name"), name)
             
         # 2. Persist Applications
         for app in graph_data.get("applications", []):
-            neo4j_client.upsert_application(app.get("fulfilled_capability_name"), app.get("name"), app.get("description", ""))
+            neo4j_client.upsert_application(tenant_id, app.get("fulfilled_capability_name"), app.get("name"), app.get("description", ""))
 
         # 3. Persist Technologies
         for tech in graph_data.get("technologies", []):
-            neo4j_client.upsert_technology(tech.get("supported_app_name"), tech.get("name"), tech.get("category", ""))
+            neo4j_client.upsert_technology(tenant_id, tech.get("supported_app_name"), tech.get("name"), tech.get("category", ""))
 
         # 4. Persist Vendor Products
         for v in graph_data.get("vendors", []):
             neo4j_client.upsert_vendor_product(
+                tenant_id,
                 v.get("name"), 
                 v.get("product"), 
                 v.get("entity_type", "Capability"), 

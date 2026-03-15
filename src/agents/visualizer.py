@@ -19,14 +19,15 @@ def visualizer_agent(state: AgentState):
     """
     
     involved_capabilities = state.get("involved_capabilities", [])
+    tenant_id = state.get("tenant_id")
     
     if not involved_capabilities:
         logger.warning("No capabilities identified for visualization.")
         return {"visualization": ""}
     
     try:
-        logger.info(f"Generating visualization for capabilities: {involved_capabilities}")
-        hierarchy = neo4j_client.get_capability_hierarchy(involved_capabilities)
+        logger.info(f"Generating visualization for capabilities: {involved_capabilities} for tenant {tenant_id}")
+        hierarchy = neo4j_client.get_capability_hierarchy(tenant_id, involved_capabilities)
         
         if not hierarchy:
             return {"visualization": ""}

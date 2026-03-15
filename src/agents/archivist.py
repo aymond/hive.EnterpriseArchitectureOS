@@ -10,6 +10,7 @@ def archive_agent(state: AgentState):
     into the Neo4j Proposal Repository.
     """
     
+    tenant_id = state.get("tenant_id")
     final_response = state.get("final_response")
     query = state.get("query")
     
@@ -18,8 +19,8 @@ def archive_agent(state: AgentState):
         return {"status": "ARCHIVE_SKIPPED"}
     
     try:
-        logger.info("Archiving architectural proposal to Neo4j...")
-        neo4j_client.save_proposal(query, final_response)
+        logger.info(f"Archiving architectural proposal to Neo4j for tenant {tenant_id}...")
+        neo4j_client.save_proposal(tenant_id, query, final_response)
         logger.info("Proposal successfully archived.")
         return {"status": "PROPOSAL_ARCHIVED"}
     except Exception as e:

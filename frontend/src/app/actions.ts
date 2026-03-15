@@ -6,6 +6,9 @@ export async function submitEARequest(query: string) {
   try {
     const res = await fetch(`${backendUrl}/request?query=${encodeURIComponent(query)}`, {
       method: "POST",
+      headers: {
+        "X-Tenant-ID": "default-tenant"
+      },
       cache: 'no-store'
     });
     
@@ -23,7 +26,12 @@ export async function fetchProposals() {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   try {
     console.log(`[ACTION] Fetching proposals from ${backendUrl}...`);
-    const res = await fetch(`${backendUrl}/proposals`, { cache: 'no-store' });
+    const res = await fetch(`${backendUrl}/proposals`, { 
+      headers: {
+        "X-Tenant-ID": "default-tenant"
+      },
+      cache: 'no-store' 
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
     console.log(`[ACTION] Successfully fetched ${Array.isArray(data) ? data.length : 'invalid'} proposals.`);
@@ -36,7 +44,12 @@ export async function fetchProposals() {
 export async function getProposalById(id: string) {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   try {
-    const res = await fetch(`${backendUrl}/proposals/${id}`, { cache: 'no-store' });
+    const res = await fetch(`${backendUrl}/proposals/${id}`, { 
+      headers: {
+        "X-Tenant-ID": "default-tenant"
+      },
+      cache: 'no-store' 
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
     return { success: true, data };

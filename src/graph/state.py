@@ -6,6 +6,9 @@ def merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     return {**a, **b}
 
 class AgentState(TypedDict):
+    # The ID of the tenant for data isolation
+    tenant_id: str
+    
     # The initial request from the user
     query: str
     

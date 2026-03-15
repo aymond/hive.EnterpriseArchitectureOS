@@ -16,13 +16,14 @@ def discovery_agent(state: AgentState):
     
     involved_capabilities = state.get("involved_capabilities", [])
     user_query = state.get("query", "")
+    tenant_id = state.get("tenant_id")
     
     if not involved_capabilities:
         return {"status": "SKIPPED_DISCOVERY"}
         
     try:
         # 1. Get all capabilities from the graph for context
-        all_caps = neo4j_client.get_all_capabilities()
+        all_caps = neo4j_client.get_all_capabilities(tenant_id)
         
         # Filter out the current ones to avoid redundant comparisons
         existing_caps = [c for c in all_caps if c["name"] not in involved_capabilities]
@@ -75,7 +76,7 @@ def discovery_agent(state: AgentState):
         if isinstance(new_relationships, list):
             for rel in new_relationships:
                 if rel.get("type") == "PARENT_OF" and rel.get("parent") and rel.get("child"):
-                    neo4j_client.set_capability_parent(rel["parent"], rel["child"])
+                    neo4j_client.set_capability_parent(tenant_id, rel["parent"], rel["child"])
                     discovered_count += 1
                     # Also update state so visualizer sees them immediately
                     if rel["parent"] not in involved_capabilities:

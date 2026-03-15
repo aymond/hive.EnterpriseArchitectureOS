@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 import uvicorn
 import click
 from dotenv import load_dotenv
@@ -20,22 +20,23 @@ def read_root():
     return {"message": "Enterprise Architecture Agent System API is running."}
 
 @app.get("/proposals")
-def list_proposals():
-    """List all saved proposals."""
-    return neo4j_client.get_proposals()
+def list_proposals(x_tenant_id: str = Header(...)):
+    """List all saved proposals for the given tenant."""
+    return neo4j_client.get_proposals(x_tenant_id)
 
 @app.get("/proposals/{proposal_id}")
-def get_proposal(proposal_id: str):
-    """Retrieve a specific proposal by ID."""
-    proposal = neo4j_client.get_proposal_by_id(proposal_id)
+def get_proposal(proposal_id: str, x_tenant_id: str = Header(...)):
+    """Retrieve a specific proposal by ID for the given tenant."""
+    proposal = neo4j_client.get_proposal_by_id(x_tenant_id, proposal_id)
     if not proposal:
-        return {"error": "Proposal not found"}, 404
+        raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal
 
 @app.post("/request")
-def handle_request(query: str):
-    """Process an enterprise architecture request via LangGraph."""
+def handle_request(query: str, x_tenant_id: str = Header(...)):
+    """Process an enterprise architecture request via LangGraph with tenant context."""
     initial_state = {
+        "tenant_id": x_tenant_id,
         "query": query,
         "required_domains": [],
         "domain_outputs": {},
@@ -52,6 +53,7 @@ def handle_request(query: str):
     return {
         "status": "success", 
         "query": query, 
+        "tenant_id": x_tenant_id,
         "engaged_domains": final_state.get("required_domains", []),
         "quality_check": final_state.get("quality_status"),
         "response": final_state.get("final_response")
