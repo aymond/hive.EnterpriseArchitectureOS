@@ -5,8 +5,14 @@ import { submitEARequest, fetchProposals, getProposalById } from "./actions";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Mermaid from "@/components/Mermaid";
+import { useAuth } from "@/context/AuthContext";
+import { User, LogOut, LayoutDashboard, History } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const { user, token, logout, isLoading } = useAuth();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -15,18 +21,23 @@ export default function Home() {
   const [showRepo, setShowRepo] = useState(false);
 
   useEffect(() => {
-    loadProposals();
-  }, []);
+    if (!isLoading && !token) {
+      router.push('/login');
+    } else if (token) {
+      loadProposals(token);
+    }
+  }, [token, isLoading]);
 
-  const loadProposals = async () => {
-    const res = await fetchProposals();
+  const loadProposals = async (authToken: string) => {
+    const res = await fetchProposals(authToken);
     if (res.success) setProposals(res.data);
   };
 
   const handleSelectProposal = async (id: string) => {
+    if (!token) return;
     setLoading(true);
     setError(null);
-    const res = await getProposalById(id);
+    const res = await getProposalById(id, token);
     if (res.success) {
       setResult({
         ...res.data,
@@ -43,22 +54,32 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || !token) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
 
-    const res = await submitEARequest(query);
+    const res = await submitEARequest(query, token);
 
     if (res.success) {
       setResult(res.data);
-      loadProposals();
+      loadProposals(token);
     } else {
       setError(res.error || "An unknown error occurred while connecting to the Agents.");
     }
     setLoading(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-50 flex font-sans selection:bg-indigo-500/30 overflow-hidden">
@@ -100,14 +121,35 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto relative scroll-smooth h-screen">
         
+        {/* User Profile / Logout - Top Right */}
+        <div className="fixed top-8 right-8 z-40 flex items-center gap-3">
+          <Link 
+            href="/profile"
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-white hover:border-white/20 transition duration-300 shadow-2xl group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-white/10">
+              {user.full_name?.charAt(0)}
+            </div>
+            <div className="flex flex-col pr-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 group-hover:text-neutral-300 transition">{user.tenant_id}</span>
+              <span className="text-xs font-bold text-white tracking-tight">{user.full_name}</span>
+            </div>
+          </Link>
+          <button 
+            onClick={logout}
+            className="p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/20 transition duration-300 shadow-2xl"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+
         {/* Repository Toggle Button - Fixed Floating */}
         <button 
           onClick={() => setShowRepo(true)}
           className="fixed top-8 left-8 z-40 p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-indigo-400 hover:border-indigo-500/50 transition duration-300 shadow-2xl group flex items-center gap-3"
         >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
+          <History className="w-6 h-6" />
           <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">Repository</span>
         </button>
 

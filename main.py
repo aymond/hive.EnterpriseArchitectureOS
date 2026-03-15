@@ -1,9 +1,9 @@
-import os
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 import uvicorn
 import click
 from dotenv import load_dotenv
 from src.graph.workflow import graph
+from src.api.auth import router as auth_router, get_current_user
 
 import logging
 
@@ -15,28 +15,34 @@ from src.db.neo4j import neo4j_client
 
 app = FastAPI(title="Enterprise Architecture Agent System API", version="0.1.0")
 
+# Include the Authentication Router
+app.include_router(auth_router)
+
 @app.get("/")
 def read_root():
     return {"message": "Enterprise Architecture Agent System API is running."}
 
 @app.get("/proposals")
-def list_proposals(x_tenant_id: str = Header(...)):
-    """List all saved proposals for the given tenant."""
-    return neo4j_client.get_proposals(x_tenant_id)
+def list_proposals(current_user: dict = Depends(get_current_user)):
+    """List all saved proposals for the authenticated tenant."""
+    tenant_id = current_user["tenant_id"]
+    return neo4j_client.get_proposals(tenant_id)
 
 @app.get("/proposals/{proposal_id}")
-def get_proposal(proposal_id: str, x_tenant_id: str = Header(...)):
-    """Retrieve a specific proposal by ID for the given tenant."""
-    proposal = neo4j_client.get_proposal_by_id(x_tenant_id, proposal_id)
+def get_proposal(proposal_id: str, current_user: dict = Depends(get_current_user)):
+    """Retrieve a specific proposal by ID for the authenticated tenant."""
+    tenant_id = current_user["tenant_id"]
+    proposal = neo4j_client.get_proposal_by_id(tenant_id, proposal_id)
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal
 
 @app.post("/request")
-def handle_request(query: str, x_tenant_id: str = Header(...)):
-    """Process an enterprise architecture request via LangGraph with tenant context."""
+def handle_request(query: str, current_user: dict = Depends(get_current_user)):
+    """Process an enterprise architecture request via LangGraph with authenticated tenant context."""
+    tenant_id = current_user["tenant_id"]
     initial_state = {
-        "tenant_id": x_tenant_id,
+        "tenant_id": tenant_id,
         "query": query,
         "required_domains": [],
         "domain_outputs": {},
@@ -47,13 +53,14 @@ def handle_request(query: str, x_tenant_id: str = Header(...)):
         "messages": []
     }
     
-    # Run the graph synchronously for the API example
+    # Run the graph synchronously
     final_state = graph.invoke(initial_state)
     
     return {
         "status": "success", 
         "query": query, 
-        "tenant_id": x_tenant_id,
+        "tenant_id": tenant_id,
+        "user_email": current_user["email"],
         "engaged_domains": final_state.get("required_domains", []),
         "quality_check": final_state.get("quality_status"),
         "response": final_state.get("final_response")

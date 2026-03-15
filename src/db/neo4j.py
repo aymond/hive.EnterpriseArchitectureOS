@@ -153,13 +153,35 @@ class Neo4jClient:
         """
         return self.query(cypher, {"tenant_id": tenant_id})
 
-    def get_proposal_by_id(self, tenant_id, proposal_id):
-        """Retrieves the full content of a specific proposal for a specific tenant."""
+    def get_user_by_email(self, email):
+        """Retrieves a user by their email address."""
+        cypher = "MATCH (u:User {email: $email}) RETURN u"
+        results = self.query(cypher, {"email": email})
+        return results[0]["u"] if results else None
+
+    def create_user(self, email, hashed_password, full_name, tenant_id):
+        """Creates a new user and links them to a tenant."""
         cypher = """
-        MATCH (p:Proposal {id: $proposal_id, tenant_id: $tenant_id})
-        RETURN p.id as id, p.query as query, p.content as content, p.timestamp as timestamp
+        MERGE (t:Tenant {id: $tenant_id})
+        MERGE (u:User {email: $email})
+        SET u.password = $hashed_password,
+            u.full_name = $full_name,
+            u.tenant_id = $tenant_id,
+            u.created_at = datetime()
+        MERGE (u)-[:MEMBER_OF]->(t)
+        RETURN u.email as email
         """
-        results = self.query(cypher, {"proposal_id": proposal_id, "tenant_id": tenant_id})
-        return results[0] if results else None
+        return self.query(cypher, {
+            "email": email,
+            "hashed_password": hashed_password,
+            "full_name": full_name,
+            "tenant_id": tenant_id
+        })
+
+    def get_tenant_by_id(self, tenant_id):
+        """Retrieves tenant details."""
+        cypher = "MATCH (t:Tenant {id: $tenant_id}) RETURN t"
+        results = self.query(cypher, {"tenant_id": tenant_id})
+        return results[0]["t"] if results else None
 
 neo4j_client = Neo4jClient()
