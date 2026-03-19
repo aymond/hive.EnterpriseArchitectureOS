@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status
 import uvicorn
 import click
@@ -13,7 +14,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 from src.db.neo4j import neo4j_client
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Enterprise Architecture Agent System API", version="0.1.0")
+
+# CORS — set ALLOWED_ORIGINS in .env to your OCI VM public IP or domain
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost,http://localhost:3000")
+allowed_origins = [o.strip() for o in _raw_origins.split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include the Authentication Router
 app.include_router(auth_router)
