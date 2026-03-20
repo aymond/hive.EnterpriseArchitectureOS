@@ -37,17 +37,37 @@ app.include_router(auth_router)
 def read_root():
     return {"message": "Enterprise Architecture Agent System API is running."}
 
+@app.get("/health")
+def health_check():
+    """Check backend and Neo4j connectivity."""
+    try:
+        neo4j_client.connect()
+        # Run a lightweight ping query
+        neo4j_client.query("RETURN 1 AS ok")
+        return {"status": "ok", "neo4j": "connected"}
+    except Exception as e:
+        logger.warning(f"Health check: Neo4j unreachable — {e}")
+        return {"status": "degraded", "neo4j": "disconnected", "detail": str(e)}
+
 @app.get("/proposals")
 def list_proposals(current_user: dict = Depends(get_current_user)):
     """List all saved proposals for the authenticated tenant."""
     tenant_id = current_user["tenant_id"]
-    return neo4j_client.get_proposals(tenant_id)
+    try:
+        return neo4j_client.get_proposals(tenant_id)
+    except Exception as e:
+        logger.error(f"Failed to list proposals for tenant {tenant_id}: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to retrieve proposals from knowledge base: {e}")
 
 @app.get("/proposals/{proposal_id}")
 def get_proposal(proposal_id: str, current_user: dict = Depends(get_current_user)):
     """Retrieve a specific proposal by ID for the authenticated tenant."""
     tenant_id = current_user["tenant_id"]
-    proposal = neo4j_client.get_proposal_by_id(tenant_id, proposal_id)
+    try:
+        proposal = neo4j_client.get_proposal_by_id(tenant_id, proposal_id)
+    except Exception as e:
+        logger.error(f"Failed to retrieve proposal {proposal_id} for tenant {tenant_id}: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to retrieve proposal from knowledge base: {e}")
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal

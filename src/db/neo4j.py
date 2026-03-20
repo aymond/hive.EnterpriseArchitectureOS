@@ -1,5 +1,6 @@
 import os
-from neo4j import GraphDatabase
+from typing import Optional
+from neo4j import GraphDatabase, Driver
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,30 +10,35 @@ class Neo4jClient:
         self.uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.user = os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = os.getenv("NEO4J_PASSWORD", "password")
-        self.driver = None
+        self.driver: Optional[Driver] = None
 
     def connect(self):
         try:
             self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
-            self.driver.verify_connectivity()
+            driver = self.driver
+            if driver is not None:
+                driver.verify_connectivity()
             logger.info("Connected to Neo4j successfully.")
         except Exception as e:
             logger.error(f"Failed to connect to Neo4j: {e}")
 
     def close(self):
-        if self.driver:
-            self.driver.close()
+        driver = self.driver
+        if driver is not None:
+            driver.close()
 
     def query(self, query, parameters=None):
         if not self.driver:
             self.connect()
+        if not self.driver:
+            raise ConnectionError("Neo4j driver is not connected. Check NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD.")
         try:
-            with self.driver.session() as session:
+            with self.driver.session() as session:  # type: ignore[union-attr]
                 result = session.run(query, parameters)
                 return [record.data() for record in result]
         except Exception as e:
             logger.error(f"Error executing query: {e}")
-            return []
+            raise
 
     def upsert_capability(self, tenant_id, domain, name, description):
         """Creates or updates a capability node and links it to a domain."""
@@ -144,6 +150,15 @@ class Neo4jClient:
         ORDER BY p.timestamp DESC
         """
         return self.query(cypher, {"tenant_id": tenant_id})
+    def get_proposal_by_id(self, tenant_id, proposal_id):
+        """Retrieves a specific proposal by ID for a specific tenant."""
+        cypher = """
+        MATCH (p:Proposal {id: $proposal_id, tenant_id: $tenant_id})
+        RETURN p.id as id, p.query as query, p.content as content, p.timestamp as timestamp
+        """
+        results = self.query(cypher, {"proposal_id": proposal_id, "tenant_id": tenant_id})
+        return results[0] if results else None
+
 
     def get_all_capabilities(self, tenant_id):
         """Retrieves all capabilities for a specific tenant."""

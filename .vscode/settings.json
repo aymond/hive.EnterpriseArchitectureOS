@@ -1,0 +1,10 @@
+{
+    "python.defaultInterpreterPath": "/Users/aymondelbridge/Projects/hive.capability/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "/Users/aymondelbridge/Projects/hive.capability"
+    ],
+    "python.venvPath": "/Users/aymondelbridge/Projects/hive.capability",
+    "python.venvFolders": [
+        "venv"
+    ]
+}

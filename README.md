@@ -84,6 +84,9 @@ graph TD
    - **Backend API**: `http://localhost:8000`
    - **Neo4j Browser**: `http://localhost:7474` (User: `neo4j`, Password: `password`)
 
+### Cloud Deployment (OCI)
+To deploy this application to a production Oracle Cloud Infrastructure (OCI) Virtual Machine using Terraform and automated cloud-init scripts, please refer to the [OCI Deployment Guide](docs/OCI_DEPLOYMENT.md).
+
 ## 📖 Usage
 
 1. Enter a business initiative or technology request (e.g., *"Design an omni-channel loyalty platform for a global retail brand"*).

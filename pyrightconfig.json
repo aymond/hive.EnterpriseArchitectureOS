@@ -1,0 +1,15 @@
+{
+    "venvPath": "/Users/aymondelbridge/Projects/hive.capability",
+    "venv": "venv",
+    "extraPaths": [
+        "/Users/aymondelbridge/Projects/hive.capability"
+    ],
+    "executionEnvironments": [
+        {
+            "root": "/Users/aymondelbridge/Projects/hive.capability",
+            "extraPaths": [
+                "/Users/aymondelbridge/Projects/hive.capability"
+            ]
+        }
+    ]
+}

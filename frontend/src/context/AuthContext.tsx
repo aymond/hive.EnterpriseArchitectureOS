@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `auth_token=${newToken}; path=/; max-age=86400; SameSite=Lax`;
     setToken(newToken);
     await fetchUserProfile(newToken);
-    router.push('/');
+    window.location.href = '/';
   };
 
   const logout = () => {
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setToken(null);
     setUser(null);
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (

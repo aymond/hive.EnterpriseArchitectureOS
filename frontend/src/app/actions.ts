@@ -1,7 +1,7 @@
 "use server"
 
 export async function submitEARequest(query: string, authToken: string) {
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
   
   try {
     const res = await fetch(`${backendUrl}/request?query=${encodeURIComponent(query)}`, {
@@ -24,7 +24,7 @@ export async function submitEARequest(query: string, authToken: string) {
 }
 
 export async function fetchProposals(authToken: string) {
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
   try {
     const res = await fetch(`${backendUrl}/proposals`, { 
       headers: {
@@ -32,7 +32,10 @@ export async function fetchProposals(authToken: string) {
       },
       cache: 'no-store' 
     });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status}: ${body || res.statusText}`);
+    }
     const data = await res.json();
     return { success: true, data };
   } catch (error: any) {
@@ -41,7 +44,7 @@ export async function fetchProposals(authToken: string) {
 }
 
 export async function getProposalById(id: string, authToken: string) {
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
   try {
     const res = await fetch(`${backendUrl}/proposals/${id}`, { 
       headers: {
@@ -49,7 +52,10 @@ export async function getProposalById(id: string, authToken: string) {
       },
       cache: 'no-store' 
     });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status}: ${body || res.statusText}`);
+    }
     const data = await res.json();
     return { success: true, data };
   } catch (error: any) {

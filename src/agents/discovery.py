@@ -72,7 +72,7 @@ def discovery_agent(state: AgentState):
             return {"discovery_status": "NO_RELATIONS_FOUND"}
 
         # 3. Commit discovered relationships to Neo4j
-        discovered_count = 0
+        discovered_count: int = 0  # explicit int so += is type-safe
         if isinstance(new_relationships, list):
             for rel in new_relationships:
                 if rel.get("type") == "PARENT_OF" and rel.get("parent") and rel.get("child"):

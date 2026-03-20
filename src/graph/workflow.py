@@ -35,7 +35,7 @@ builder.add_node("Archivist", archive_agent)
 # Routing Logic
 def route_to_domains(state: AgentState) -> list[str]:
     """Dynamically route to the required domain experts based on the coordinator's assessment."""
-    domains = state.get("required_domains", [])
+    domains: list[str] = list(state.get("required_domains", []))
     if not domains:
         # Fallback
         return ["Enterprise", "Technology"]

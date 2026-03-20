@@ -21,9 +21,7 @@ export default function Home() {
   const [showRepo, setShowRepo] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !token) {
-      router.push('/login');
-    } else if (token) {
+    if (token) {
       loadProposals(token);
     }
   }, [token, isLoading]);
@@ -47,7 +45,7 @@ export default function Home() {
       });
       setShowRepo(false);
     } else {
-      setError("Failed to load historical proposal.");
+      setError(`Failed to load historical proposal. ${res.error || ""}`.trim());
     }
     setLoading(false);
   };
@@ -73,13 +71,62 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center text-white">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
+        <p className="text-neutral-500 font-medium tracking-wide animate-pulse">Initializing OS...</p>
       </div>
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col selection:bg-indigo-500/30 overflow-hidden relative">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full animate-pulse border-none pointer-events-none" />
+        <div className="absolute top-[40%] right-[-10%] w-[40%] h-[60%] bg-indigo-600/10 blur-[150px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+        
+        {/* Navigation */}
+        <nav className="w-full px-8 py-6 flex items-center justify-between z-10 border-b border-white/5 bg-black/20 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            </div>
+            <span className="font-bold text-xl tracking-tight">hive.EnterpriseOS</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-sm font-semibold text-neutral-300 hover:text-white transition-colors">Sign In</Link>
+            <Link href="/login" className="text-sm font-bold bg-white text-black px-5 py-2.5 rounded-full hover:bg-neutral-200 transition-transform active:scale-95 shadow-xl shadow-white/10">Get Started</Link>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4 text-center z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-semibold text-neutral-300 uppercase tracking-widest">Multi-Agent System Online</span>
+          </div>
+          
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-neutral-500 leading-tight">
+            The Future of <br /> Enterprise Architecture
+          </h1>
+          
+          <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12 font-medium leading-relaxed">
+            A unified operating system powered by specialized AI agents. Automate technology strategy, domain modeling, and governance in a single cohesive platform.
+          </p>
+          
+          <div className="flex items-center gap-4 flex-col sm:flex-row">
+            <Link 
+              href="/login"
+              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-full font-bold text-lg shadow-xl shadow-blue-500/25 transition-all active:scale-95 flex items-center gap-2 group"
+            >
+              Access the OS
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-50 flex font-sans selection:bg-indigo-500/30 overflow-hidden">
@@ -271,18 +318,18 @@ export default function Home() {
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm]}
                       components={{
-                        h1: ({node, ...props}) => <h1 className="text-6xl font-black mb-12 mt-4 border-b-2 border-neutral-800 pb-8 tracking-tighter" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-3xl font-black mb-8 mt-20 text-indigo-400 flex items-center gap-4 uppercase tracking-widest leading-none outline-none" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-2xl font-bold mb-6 mt-12 text-neutral-100 tracking-tight" {...props} />,
-                        p: ({node, ...props}) => <p className="mb-10 leading-[1.8] text-neutral-400 font-medium text-lg" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-none mb-10 space-y-4" {...props} />,
-                        li: ({node, ...props}) => (
+                        h1: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'h1'>) => <h1 className="text-6xl font-black mb-12 mt-4 border-b-2 border-neutral-800 pb-8 tracking-tighter" {...props} />,
+                        h2: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'h2'>) => <h2 className="text-3xl font-black mb-8 mt-20 text-indigo-400 flex items-center gap-4 uppercase tracking-widest leading-none outline-none" {...props} />,
+                        h3: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'h3'>) => <h3 className="text-2xl font-bold mb-6 mt-12 text-neutral-100 tracking-tight" {...props} />,
+                        p: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'p'>) => <p className="mb-10 leading-[1.8] text-neutral-400 font-medium text-lg" {...props} />,
+                        ul: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'ul'>) => <ul className="list-none mb-10 space-y-4" {...props} />,
+                        li: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'li'>) => (
                           <li className="flex gap-4 items-start translate-x-2">
                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-3 flex-shrink-0 animate-pulse"></div>
                              <span {...props} />
                           </li>
                         ),
-                        blockquote: ({node, ...props}) => (
+                        blockquote: ({node: _n, ...props}: {node?: unknown} & React.ComponentPropsWithoutRef<'blockquote'>) => (
                           <blockquote className="border-l-8 border-indigo-500 bg-indigo-500/5 px-10 py-8 rounded-3xl my-16 italic text-neutral-300 text-xl font-light leading-relaxed" {...props} />
                         ),
                         code: ({node, className, children, ...props}: any) => {

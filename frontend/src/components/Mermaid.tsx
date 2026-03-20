@@ -20,7 +20,6 @@ const Mermaid: React.FC<MermaidProps> = ({ chart }) => {
       theme: 'dark',
       securityLevel: 'loose',
       fontFamily: 'Inter, system-ui, sans-serif',
-      useMaxWidth: true,
       themeVariables: {
         primaryColor: '#6366f1',
         primaryTextColor: '#fff',
@@ -91,7 +90,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart }) => {
           centerOnInit={true}
           limitToBounds={false}
         >
-          {({ zoomIn, zoomOut, resetTransform }) => (
+          {({ zoomIn, zoomOut, resetTransform }: { zoomIn: (step?: number) => void; zoomOut: (step?: number) => void; resetTransform: () => void }) => (
             <>
               {/* Controls UI */}
               <div className="absolute bottom-6 right-6 z-10 flex items-center gap-2 p-2 rounded-2xl bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 shadow-2xl opacity-0 group-hover/mermaid:opacity-100 transition-all duration-500 translate-y-2 group-hover/mermaid:translate-y-0">
@@ -110,7 +109,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart }) => {
                 </button>
               </div>
 
-              <TransformComponent wrapperClassName="!w-full !h-full" contentClassName="flex justify-center items-center min-w-full min-h-[500px]">
+              <TransformComponent wrapperClass="!w-full !h-full" contentClass="flex justify-center items-center min-w-full min-h-[500px]">
                 <div className="mermaid-container" ref={ref}>
                   <div className="animate-pulse text-indigo-400 font-black text-[10px] tracking-[0.3em] uppercase">Rendering Architecture...</div>
                 </div>
