@@ -19,23 +19,24 @@
 
 ```mermaid
 graph TD
-    User((User)) -->|Query| API[FastAPI Backend]
+    User((User)) -->|Query| Frontend[Next.js Frontend]
+    Frontend -->|Server Action| API[FastAPI Backend]
     API -->|Tenant Context| Workflow[LangGraph Orchestrator]
     
     subgraph Agents
-        Workflow --> Coordinator[Chief EA Agent]
-        Coordinator --> Domains[Domain Experts]
+        Workflow --> Coordinator[Chief EA Coordinator]
+        Coordinator --> Domains[Domain Experts x6]
         Domains --> Research[Vendor Research Agent]
-        Research --> QC[Quality Check Agent]
+        Research --> QC[Quality / Governance Check]
         QC --> Persistence[Persistence Agent]
+        Persistence --> Discovery[Discovery Agent]
+        Discovery --> Visualizer[Visualizer Agent]
+        Visualizer --> Synthesizer[Synthesizer Agent]
+        Synthesizer --> Archivist[Archivist Agent]
     end
     
     Persistence -->|Cypher| Graph[(Neo4j Graph DB)]
-    Graph -->|Historical Data| Archivist[Archivist Agent]
-    
-    subgraph Frontend
-        Web[Next.js App] -->|Interactive UI| User
-    end
+    Archivist -->|Save Proposal| Graph
 ```
 
 ## 🛠 Tech Stack
@@ -70,8 +71,10 @@ graph TD
    TAVILY_API_KEY=your_key_here
    NEO4J_URI=bolt://neo4j:7687
    NEO4J_USERNAME=neo4j
-   NEO4J_PASSWORD=password
-   BACKEND_URL=http://backend:8000
+   NEO4J_PASSWORD=your_password_here
+   JWT_SECRET_KEY=your_secret_key_here
+   ALLOWED_ORIGINS=http://localhost,http://localhost:3000
+   NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
    ```
 
 3. **Launch with Docker Compose**:
@@ -80,7 +83,7 @@ graph TD
    ```
 
 4. **Access the Application**:
-   - **Frontend**: `http://localhost:3000`
+   - **Frontend**: `http://localhost` (port 80 via Docker)
    - **Backend API**: `http://localhost:8000`
    - **Neo4j Browser**: `http://localhost:7474` (User: `neo4j`, Password: `password`)
 

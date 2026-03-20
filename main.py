@@ -1,20 +1,20 @@
-import os
-from fastapi import FastAPI, Depends, HTTPException, status
-import uvicorn
-import click
-from dotenv import load_dotenv
-from src.graph.workflow import graph
-from src.api.auth import router as auth_router, get_current_user
-
 import logging
+import os
+
+import click
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.api.auth import router as auth_router, get_current_user
+from src.db.neo4j import neo4j_client
+from src.graph.workflow import graph
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-from src.db.neo4j import neo4j_client
-
-from fastapi.middleware.cors import CORSMiddleware
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Enterprise Architecture Agent System API", version="0.1.0")
 

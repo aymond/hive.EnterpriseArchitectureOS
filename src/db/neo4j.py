@@ -1,4 +1,6 @@
+import datetime
 import os
+import uuid
 from typing import Optional
 from neo4j import GraphDatabase, Driver
 import logging
@@ -114,16 +116,10 @@ class Neo4jClient:
             "tenant_id": tenant_id
         })
 
-    def connect_vendor(self, tenant_id, capability_name, vendor_name, product_name):
-        """Deprecated: Use upsert_vendor_product for more flexibility."""
-        return self.upsert_vendor_product(tenant_id, vendor_name, product_name, "Capability", capability_name)
-
     def save_proposal(self, tenant_id, query, content, proposal_id=None):
         """Saves a synthesized architectural proposal to the graph."""
-        import datetime
         timestamp = datetime.datetime.now().isoformat()
         if not proposal_id:
-            import uuid
             proposal_id = str(uuid.uuid4())
             
         cypher = """

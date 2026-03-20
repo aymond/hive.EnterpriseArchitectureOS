@@ -1,11 +1,8 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search import TavilySearchResults
 from src.graph.state import AgentState
-import os
 
 llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
-search = TavilySearchResults(max_results=3)
 
 def research_agent(state: AgentState):
     """Research agent to identify suitable vendors and tools."""
@@ -20,8 +17,6 @@ def research_agent(state: AgentState):
         ("user", "Capabilities: {domain_outputs}\nQuery: {query}")
     ])
     
-    # In a full setup, we would bind the tool to the LLM agent explicitly
-    # Here we are using a simplified prompt for the basic workflow implementation
     chain = prompt | llm
     
     response = chain.invoke({

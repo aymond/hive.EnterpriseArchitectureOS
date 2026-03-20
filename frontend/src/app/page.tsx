@@ -6,13 +6,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Mermaid from "@/components/Mermaid";
 import { useAuth } from "@/context/AuthContext";
-import { User, LogOut, LayoutDashboard, History } from "lucide-react";
+import { LogOut, History } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { user, token, logout, isLoading } = useAuth();
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
