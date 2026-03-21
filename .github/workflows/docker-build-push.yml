@@ -56,6 +56,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
+          provenance: false
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.APP_IMAGE }}:latest-${{ matrix.arch }}
@@ -71,6 +72,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           platforms: ${{ matrix.platform }}
+          provenance: false
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:latest-${{ matrix.arch }}
@@ -101,6 +103,8 @@ jobs:
 
       - name: Create and push App multi-arch manifest
         run: |
+          docker pull ${{ env.APP_IMAGE }}:latest-amd64
+          docker pull ${{ env.APP_IMAGE }}:latest-arm64
           docker manifest create ${{ env.APP_IMAGE }}:latest \
             ${{ env.APP_IMAGE }}:latest-amd64 \
             ${{ env.APP_IMAGE }}:latest-arm64
@@ -108,6 +112,8 @@ jobs:
           
       - name: Create and push Frontend multi-arch manifest
         run: |
+          docker pull ${{ env.FRONTEND_IMAGE }}:latest-amd64
+          docker pull ${{ env.FRONTEND_IMAGE }}:latest-arm64
           docker manifest create ${{ env.FRONTEND_IMAGE }}:latest \
             ${{ env.FRONTEND_IMAGE }}:latest-amd64 \
             ${{ env.FRONTEND_IMAGE }}:latest-arm64
