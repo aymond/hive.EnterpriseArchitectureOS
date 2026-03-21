@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Dict, Any, Annotated
+from typing import TypedDict, List, Dict, Any, Sequence, Annotated, Optional
 import operator
 
 def merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
@@ -11,6 +11,12 @@ class AgentState(TypedDict):
     
     # The initial request from the user
     query: str
+    
+    # Decrypted OpenAI API Key provided by the user profile
+    openai_api_key: str
+    
+    # Decrypted Tavily API Key provided by the user profile
+    tavily_api_key: Optional[str]
     
     # Track which domains should be engaged
     required_domains: List[str]

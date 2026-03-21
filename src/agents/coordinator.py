@@ -3,8 +3,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from src.graph.state import AgentState
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
-
 def coordinator_agent(state: AgentState):
     """Chief EA Coordinator - Analyzes the user request and determines which domains to engage."""
     
@@ -17,6 +15,7 @@ def coordinator_agent(state: AgentState):
         ("user", "Request: {query}")
     ])
     
+    llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
     chain = prompt | llm
     
     response = chain.invoke({"query": state["query"]})
@@ -52,6 +51,7 @@ def synthesis_agent(state: AgentState):
                  "Quality Feedback: {quality_feedback}")
     ])
     
+    llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
     chain = prompt | llm
     
     response = chain.invoke({

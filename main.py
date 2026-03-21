@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from src.api.auth import router as auth_router, get_current_user
 from src.db.neo4j import neo4j_client
 from src.graph.workflow import graph
+from src.api.security import decrypt_key
 
 load_dotenv()
 
@@ -76,12 +77,28 @@ def get_proposal(proposal_id: str, current_user: dict = Depends(get_current_user
     return proposal
 
 @app.post("/request")
-def handle_request(query: str, current_user: dict = Depends(get_current_user)):
+def process_request(query: str, current_user: dict = Depends(get_current_user)):
     """Process an enterprise architecture request via LangGraph with authenticated tenant context."""
     tenant_id = current_user["tenant_id"]
+    
+    keys = neo4j_client.get_user_api_keys(current_user["email"])
+    encrypted_openai = keys.get("openai")
+    encrypted_tavily = keys.get("tavily")
+    
+    if not encrypted_openai:
+        raise HTTPException(status_code=400, detail="Missing OpenAI API Key. Please configure it in your account settings.")
+    
+    openai_api_key = decrypt_key(encrypted_openai)
+    tavily_api_key = decrypt_key(encrypted_tavily) if encrypted_tavily else None
+    
+    if not openai_api_key:
+        raise HTTPException(status_code=400, detail="Failed to decrypt OpenAI API Key. The system secret may have changed.")
+
     initial_state = {
         "tenant_id": tenant_id,
         "query": query,
+        "openai_api_key": openai_api_key,
+        "tavily_api_key": tavily_api_key,
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],
@@ -108,9 +125,25 @@ def handle_request(query: str, current_user: dict = Depends(get_current_user)):
 def handle_stream_request(query: str, current_user: dict = Depends(get_current_user)):
     """Process an enterprise architecture request and stream events via SSE."""
     tenant_id = current_user["tenant_id"]
+    
+    keys = neo4j_client.get_user_api_keys(current_user["email"])
+    encrypted_openai = keys.get("openai")
+    encrypted_tavily = keys.get("tavily")
+    
+    if not encrypted_openai:
+        raise HTTPException(status_code=400, detail="Missing OpenAI API Key. Please configure it in your account settings.")
+    
+    openai_api_key = decrypt_key(encrypted_openai)
+    tavily_api_key = decrypt_key(encrypted_tavily) if encrypted_tavily else None
+    
+    if not openai_api_key:
+        raise HTTPException(status_code=400, detail="Failed to decrypt OpenAI API Key. The system secret may have changed.")
+
     initial_state = {
         "tenant_id": tenant_id,
         "query": query,
+        "openai_api_key": openai_api_key,
+        "tavily_api_key": tavily_api_key,
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],
@@ -175,7 +208,10 @@ def process(query):
     click.echo("Starting Chief EA Coordinator Analysis...")
     
     initial_state = {
+        "tenant_id": "cli_test_tenant",
         "query": query,
+        "openai_api_key": os.getenv("OPENAI_API_KEY"),
+        "tavily_api_key": os.getenv("TAVILY_API_KEY"),
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],

@@ -182,12 +182,41 @@ class Neo4jClient:
         MERGE (u)-[:MEMBER_OF]->(t)
         RETURN u.email as email
         """
-        return self.query(cypher, {
-            "email": email,
-            "hashed_password": hashed_password,
-            "full_name": full_name,
-            "tenant_id": tenant_id
-        })
+    def update_user_api_keys(self, email: str, encrypted_openai: Optional[str] = None, encrypted_tavily: Optional[str] = None):
+        """Stores the symmetrically encrypted API keys on the User node."""
+        sets = []
+        params = {"email": email}
+        if encrypted_openai is not None:
+            sets.append("u.encrypted_openai_key = $encrypted_openai")
+            params["encrypted_openai"] = encrypted_openai
+        if encrypted_tavily is not None:
+            sets.append("u.encrypted_tavily_key = $encrypted_tavily")
+            params["encrypted_tavily"] = encrypted_tavily
+            
+        if not sets:
+            return None
+            
+        set_clause = ", ".join(sets)
+        cypher = f"""
+        MATCH (u:User {{email: $email}})
+        SET {set_clause}
+        RETURN u.email as email
+        """
+        return self.query(cypher, params)
+
+    def get_user_api_keys(self, email: str) -> dict:
+        """Retrieves the symmetrically encrypted API keys from the User node."""
+        cypher = """
+        MATCH (u:User {email: $email})
+        RETURN u.encrypted_openai_key as openai, u.encrypted_tavily_key as tavily
+        """
+        results = self.query(cypher, {"email": email})
+        if results:
+            return {
+                "openai": results[0].get("openai"),
+                "tavily": results[0].get("tavily")
+            }
+        return {"openai": None, "tavily": None}
 
     def get_tenant_by_id(self, tenant_id):
         """Retrieves tenant details."""

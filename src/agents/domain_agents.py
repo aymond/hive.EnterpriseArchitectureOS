@@ -4,10 +4,7 @@ from langchain_openai import ChatOpenAI
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
 
-# Initialize the LLM (configurable via env variables)
-# We assume OPENAI_API_KEY is available
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
-
+# We assume OPENAI_API_KEY is available in the AgentState
 def create_domain_node(domain_name: str, domain_description: str):
     """Factory function to create domain expert nodes."""
     prompt = ChatPromptTemplate.from_messages([
@@ -24,9 +21,10 @@ def create_domain_node(domain_name: str, domain_description: str):
         ("user", "Request: {query}\n\nExisting Context from Neo4j: {existing_context}\nCurrent Peer Domain Outputs: {domain_outputs}")
     ])
     
-    chain = prompt | llm
-    
     def domain_node(state: AgentState):
+        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
+        chain = prompt | llm
+        
         # Fetch existing capabilities from Neo4j for this domain
         query = "MATCH (d:Domain {name: $domain})-[:HAS_CAPABILITY]->(c) RETURN c.name as name, c.description as description"
         existing_data = neo4j_client.query(query, {"domain": domain_name})

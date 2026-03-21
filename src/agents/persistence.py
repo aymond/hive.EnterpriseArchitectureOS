@@ -8,7 +8,6 @@ from langchain_core.prompts import ChatPromptTemplate
 import os
 
 logger = logging.getLogger(__name__)
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 def persistence_agent(state: AgentState):
     """
@@ -46,6 +45,7 @@ def persistence_agent(state: AgentState):
     ])
 
     try:
+        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
         chain = extractor_prompt | llm
         response = chain.invoke({"context": combined_context})
         

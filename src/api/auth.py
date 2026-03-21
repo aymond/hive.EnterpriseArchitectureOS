@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from src.db.neo4j import neo4j_client
+from src.api.security import encrypt_key
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "supersecretkey_change_me_in_prod")
@@ -29,9 +30,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
-    email: Optional[str] = None
-    tenant_id: Optional[str] = None
+class APIKeyUpdate(BaseModel):
+    openai_api_key: Optional[str] = None
+    tavily_api_key: Optional[str] = None
 
 # Helpers
 
@@ -113,3 +114,19 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     user_data: dict = dict(user)
     user_data.pop('password', None)
     return user_data
+
+@router.put("/api-keys")
+async def update_api_keys(keys: APIKeyUpdate, current_user: dict = Depends(get_current_user)):
+    enc_openai = encrypt_key(keys.openai_api_key) if keys.openai_api_key else None
+    enc_tavily = encrypt_key(keys.tavily_api_key) if keys.tavily_api_key else None
+    
+    neo4j_client.update_user_api_keys(current_user["email"], enc_openai, enc_tavily)
+    return {"message": "API Keys saved securely."}
+
+@router.get("/api-keys/status")
+async def get_api_key_status(current_user: dict = Depends(get_current_user)):
+    keys = neo4j_client.get_user_api_keys(current_user["email"])
+    return {
+        "has_openai_key": bool(keys.get("openai")),
+        "has_tavily_key": bool(keys.get("tavily"))
+    }

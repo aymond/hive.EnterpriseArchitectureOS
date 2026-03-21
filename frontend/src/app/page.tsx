@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchProposals, getProposalById } from "./actions";
+import { fetchProposals, getProposalById, fetchApiKeyStatus, updateApiKey } from "./actions";
 import { submitEARequestStream } from "@/lib/stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -18,14 +18,28 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [showRepo, setShowRepo] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [hasTavilyKey, setHasTavilyKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [tavilyKeyInput, setTavilyKeyInput] = useState("");
   const [activeNodes, setActiveNodes] = useState<{node: string, duration?: number}[]>([]);
   const [totalTime, setTotalTime] = useState<number | null>(null);
 
   useEffect(() => {
     if (token) {
       loadProposals(token);
+      checkApiKey(token);
     }
   }, [token, isLoading]);
+
+  const checkApiKey = async (authToken: string) => {
+    const res = await fetchApiKeyStatus(authToken);
+    if (res.success) {
+      setHasApiKey(res.hasKey);
+      setHasTavilyKey(res.hasTavilyKey || false);
+    }
+  };
 
   const loadProposals = async (authToken: string) => {
     const res = await fetchProposals(authToken);
@@ -54,6 +68,11 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || !token) return;
+
+    if (!hasApiKey || !hasTavilyKey) {
+      setShowSettings(true);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -181,8 +200,8 @@ export default function Home() {
         
         {/* User Profile / Logout - Top Right */}
         <div className="fixed top-8 right-8 z-40 flex items-center gap-3">
-          <Link 
-            href="/profile"
+          <button 
+            onClick={() => setShowSettings(true)}
             className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-white hover:border-white/20 transition duration-300 shadow-2xl group"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-white/10">
@@ -192,7 +211,7 @@ export default function Home() {
               <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 group-hover:text-neutral-300 transition">{user.tenant_id}</span>
               <span className="text-xs font-bold text-white tracking-tight">{user.full_name}</span>
             </div>
-          </Link>
+          </button>
           <button 
             onClick={logout}
             className="p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/20 transition duration-300 shadow-2xl"
@@ -210,6 +229,68 @@ export default function Home() {
           <History className="w-6 h-6" />
           <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">Repository</span>
         </button>
+
+        {showSettings && token && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl shadow-indigo-500/10">
+              <h2 className="text-2xl font-black text-white mb-2">Account Settings</h2>
+              <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
+                Connect your personal API Keys to run queries. Your keys are symmetrically encrypted using Fernet AES-128 before they touch our database.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">OpenAI API Key</label>
+                  <input
+                    type="password"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••" : "sk-proj-xxxxxxxx..."}
+                    className="w-full bg-black/50 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Tavily Search API Key</label>
+                  <input
+                    type="password"
+                    value={tavilyKeyInput}
+                    onChange={(e) => setTavilyKeyInput(e.target.value)}
+                    placeholder={hasTavilyKey ? "••••••••••••••••••••••••••••••••" : "tvly-xxxxxxxx..."}
+                    className="w-full bg-black/50 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                  />
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <button 
+                    onClick={() => setShowSettings(false)}
+                    className="flex-1 py-3 rounded-xl bg-neutral-800 text-neutral-300 font-bold text-sm tracking-wide hover:bg-neutral-700 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      // Only update if at least one input is provided. If only one is provided, the API updates just that one.
+                      if (!apiKeyInput.trim() && !tavilyKeyInput.trim()) return;
+                      
+                      // Using the existing updateApiKey action which we will modify next to accept both keys
+                      await updateApiKey(token, apiKeyInput.trim(), tavilyKeyInput.trim());
+                      
+                      if (apiKeyInput.trim()) setHasApiKey(true);
+                      if (tavilyKeyInput.trim()) setHasTavilyKey(true);
+                      
+                      setShowSettings(false);
+                      setApiKeyInput("");
+                      setTavilyKeyInput("");
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm tracking-wide hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30"
+                  >
+                    Save Keys
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="w-full flex justify-center">
           <div className="max-w-5xl w-full space-y-16 px-6 py-12 md:py-24">

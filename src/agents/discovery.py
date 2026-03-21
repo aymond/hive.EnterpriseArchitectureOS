@@ -6,7 +6,6 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 logger = logging.getLogger(__name__)
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 def discovery_agent(state: AgentState):
     """
@@ -22,6 +21,7 @@ def discovery_agent(state: AgentState):
         return {"status": "SKIPPED_DISCOVERY"}
         
     try:
+        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
         # 1. Get all capabilities from the graph for context
         all_caps = neo4j_client.get_all_capabilities(tenant_id)
         
