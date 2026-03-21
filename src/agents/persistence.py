@@ -37,6 +37,7 @@ def persistence_agent(state: AgentState):
                    "Extract the following entities and relationships as a JSON object:\n"
                    "ENTITIES:\n"
                    "- 'capabilities': {{name, description, domain, parent_capability_name}}\n"
+                   "- 'processes': {{name, description, related_capability_name}}\n"
                    "- 'applications': {{name, description, fulfilled_capability_name}}\n"
                    "- 'technologies': {{name, category, supported_app_name}}\n"
                    "- 'vendors': {{name, product, fulfilling_entity_name, entity_type (Capability|Application|Technology)}}\n\n"
@@ -74,21 +75,33 @@ def persistence_agent(state: AgentState):
             if parent:
                 neo4j_client.set_capability_parent(tenant_id, parent, name)
             
-        # 2. Persist Applications
+        # 2. Persist Processes
+        for process in graph_data.get("processes", []):
+            process_name = process.get("name")
+            related_capability = process.get("related_capability_name")
+            if process_name and related_capability:
+                neo4j_client.upsert_process(
+                    tenant_id,
+                    related_capability,
+                    process_name,
+                    process.get("description") or ""
+                )
+
+        # 3. Persist Applications
         for app in graph_data.get("applications", []):
             fulfilled = app.get("fulfilled_capability_name")
             app_name = app.get("name")
             if app_name and fulfilled:
                 neo4j_client.upsert_application(tenant_id, fulfilled, app_name, app.get("description") or "")
 
-        # 3. Persist Technologies
+        # 4. Persist Technologies
         for tech in graph_data.get("technologies", []):
             supported = tech.get("supported_app_name")
             tech_name = tech.get("name")
             if tech_name and supported:
                 neo4j_client.upsert_technology(tenant_id, supported, tech_name, tech.get("category") or "")
 
-        # 4. Persist Vendor Products
+        # 5. Persist Vendor Products
         for v in graph_data.get("vendors", []):
             v_name = v.get("name")
             product = v.get("product")

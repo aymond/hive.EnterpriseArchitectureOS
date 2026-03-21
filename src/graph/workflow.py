@@ -4,7 +4,7 @@ from src.graph.state import AgentState
 from src.agents.coordinator import coordinator_agent, synthesis_agent
 from src.agents.domain_agents import (
     strategy_agent, enterprise_agent, technology_agent, 
-    security_agent, data_agent, compliance_agent
+    security_agent, data_agent, process_agent, compliance_agent
 )
 from src.agents.research_agent import research_agent
 from src.agents.validation_agents import quality_check_agent
@@ -23,6 +23,7 @@ builder.add_node("Enterprise", enterprise_agent)
 builder.add_node("Technology", technology_agent)
 builder.add_node("Security", security_agent)
 builder.add_node("Data", data_agent)
+builder.add_node("Process", process_agent)
 builder.add_node("Compliance", compliance_agent)
 builder.add_node("Research", research_agent)
 builder.add_node("QualityCheck", quality_check_agent)
@@ -41,7 +42,7 @@ def route_to_domains(state: AgentState) -> list[str]:
         return ["Enterprise", "Technology"]
     
     # Filter only valid node names
-    valid_nodes = ["Strategy", "Enterprise", "Technology", "Security", "Data", "Compliance"]
+    valid_nodes = ["Strategy", "Enterprise", "Technology", "Security", "Data", "Process", "Compliance"]
     return [d for d in domains if d in valid_nodes]
 
 # Edges
@@ -57,6 +58,7 @@ builder.add_conditional_edges(
         "Technology": "Technology",
         "Security": "Security",
         "Data": "Data",
+        "Process": "Process",
         "Compliance": "Compliance"
     }
 )
@@ -67,6 +69,7 @@ builder.add_edge("Enterprise", "Research")
 builder.add_edge("Technology", "Research")
 builder.add_edge("Security", "Research")
 builder.add_edge("Data", "Research")
+builder.add_edge("Process", "Research")
 builder.add_edge("Compliance", "Research")
 
 # Research goes to Quality Check

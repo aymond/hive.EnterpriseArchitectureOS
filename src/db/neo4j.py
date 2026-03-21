@@ -87,6 +87,22 @@ class Neo4jClient:
         """
         return self.query(query, {"capability_name": capability_name, "app_name": app_name, "app_description": app_description, "tenant_id": tenant_id})
 
+    def upsert_process(self, tenant_id, capability_name, process_name, process_description=""):
+        """Creates a process node and links it to a capability."""
+        query = """
+        MERGE (c:Capability {name: $capability_name, tenant_id: $tenant_id})
+        MERGE (p:Process {name: $process_name, tenant_id: $tenant_id})
+        SET p.description = $process_description
+        MERGE (p)-[:SUPPORTS_CAPABILITY]->(c)
+        RETURN p
+        """
+        return self.query(query, {
+            "capability_name": capability_name,
+            "process_name": process_name,
+            "process_description": process_description,
+            "tenant_id": tenant_id
+        })
+
     def upsert_technology(self, tenant_id, app_name, tech_name, tech_category=""):
         """Creates a technology node and links it to an application."""
         query = """

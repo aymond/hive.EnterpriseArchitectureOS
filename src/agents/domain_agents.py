@@ -14,6 +14,7 @@ def create_domain_node(domain_name: str, domain_description: str):
                    "IMPORTANT: Review 'Existing Context' and avoid duplication.\n"
                    "Output a structured JSON containing:\n"
                    "- 'capabilities': List of business/technical functions.\n"
+                   "- 'processes': List of processes with process name, description, and related capability name.\n"
                    "- 'applications': List of software systems/apps fulfilling those capabilities.\n"
                    "- 'technologies': Underlying stack (platforms, infra) supporting the applications.\n"
                    "- 'business_drivers': Strategic goals.\n"
@@ -67,6 +68,11 @@ security_agent = create_domain_node(
 data_agent = create_domain_node(
     "Data", 
     "Governing data architecture, data models, information flows, and analytics capabilities."
+)
+
+process_agent = create_domain_node(
+    "Process",
+    "Modeling business and operational processes, process ownership, and process-to-capability traceability."
 )
 
 compliance_agent = create_domain_node(
