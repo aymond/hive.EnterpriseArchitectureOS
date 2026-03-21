@@ -1,7 +1,8 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
+from pydantic import SecretStr
 from src.graph.state import AgentState
 
 def research_agent(state: AgentState):
@@ -17,18 +18,24 @@ def research_agent(state: AgentState):
     )
     user_message = f"Capabilities: {state.get('domain_outputs', {})}\nQuery: {state['query']}"
     
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.2, api_key=state.get("openai_api_key"))
+    openai_api_key = state.get("openai_api_key")
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0.2,
+        api_key=SecretStr(openai_api_key) if openai_api_key else None
+    )
     
     tools = []
     tavily_key = state.get("tavily_api_key")
     if tavily_key:
-        tools.append(TavilySearchResults(max_results=3, api_key=tavily_key))
+        tools.append(TavilySearch(max_results=3, api_key=tavily_key))
         
     if tools:
         agent_executor = create_react_agent(llm, tools)
         user_message_with_system = f"{system_message}\n\n{user_message}"
         response = agent_executor.invoke({"messages": [("user", user_message_with_system)]})
-        content = response["messages"][-1].content
+        response_content = response["messages"][-1].content
+        content = response_content if isinstance(response_content, str) else str(response_content)
     else:
         # Fallback if no Tavily key is provided
         fallback_prompt = ChatPromptTemplate.from_messages([
@@ -46,7 +53,7 @@ def research_agent(state: AgentState):
             "query": state["query"],
             "domain_outputs": state.get("domain_outputs", {})
         })
-        content = response.content
+        content = response.content if isinstance(response.content, str) else str(response.content)
     
     # Store actual LLM research results
     current_results = state.get("research_results", [])
