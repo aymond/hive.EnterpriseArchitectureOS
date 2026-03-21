@@ -19,7 +19,9 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    // In production Docker images, use the Next.js /api rewrite to reach the backend
+    // to avoid build-time env variable baking issues.
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000');
     
     try {
       if (isLogin) {
