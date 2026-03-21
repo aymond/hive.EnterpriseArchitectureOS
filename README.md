@@ -73,6 +73,7 @@ graph TD
    NEO4J_USERNAME=neo4j
    NEO4J_PASSWORD=your_password_here
    JWT_SECRET_KEY=your_secret_key_here
+   FERNET_SECRET_KEY=your_fernet_key_here
    ALLOWED_ORIGINS=http://localhost,http://localhost:3000
    NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
    ```
