@@ -225,7 +225,7 @@ def process(query):
         for k, v in event.items():
             if k == "Coordinator":
                 click.secho(f"Coordinator selected domains: {v.get('required_domains')}", fg="blue")
-            elif k in ["Strategy", "Enterprise", "Technology", "Security", "Data", "Compliance"]:
+            elif k in ["Strategy", "Enterprise", "Technology", "Security", "Data", "Process", "Compliance"]:
                 click.secho(f"{k} Agent finished analyzing the request.", fg="green")
             elif k == "Research":
                 click.secho(f"Research Agent identified vendors/tools for requested capabilities.", fg="yellow")

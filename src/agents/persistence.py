@@ -10,6 +10,16 @@ import os
 
 logger = logging.getLogger(__name__)
 
+def _normalize_related_capabilities(process: dict) -> list[str]:
+    """Normalizes process capability references to a deduplicated list."""
+    names = process.get("related_capability_names")
+    if isinstance(names, list):
+        return [n.strip() for n in names if isinstance(n, str) and n.strip()]
+    single_name = process.get("related_capability_name")
+    if isinstance(single_name, str) and single_name.strip():
+        return [single_name.strip()]
+    return []
+
 def persistence_agent(state: AgentState):
     """
     Persistence Agent - Uses an LLM to extract a high-fidelity EA graph 
@@ -38,7 +48,11 @@ def persistence_agent(state: AgentState):
                    "Extract the following entities and relationships as a JSON object:\n"
                    "ENTITIES:\n"
                    "- 'capabilities': {{name, description, domain, parent_capability_name}}\n"
-                   "- 'processes': {{name, description, related_capability_name}}\n"
+                   "- 'processes': {{name, description, related_capability_names[]}}\n"
+                   "CONSTRAINTS:\n"
+                   "- Every capability must include a non-empty domain.\n"
+                   "- If a capability has parent_capability_name, parent and child must belong to the same domain.\n"
+                   "- Every process must include at least one related capability in related_capability_names.\n"
                    "- 'applications': {{name, description, fulfilled_capability_name}}\n"
                    "- 'technologies': {{name, category, supported_app_name}}\n"
                    "- 'vendors': {{name, product, fulfilling_entity_name, entity_type (Capability|Application|Technology)}}\n\n"
@@ -66,6 +80,9 @@ def persistence_agent(state: AgentState):
             
         graph_data = json.loads(content)
         tenant_id = state.get("tenant_id")
+        capability_domain_by_name: dict[str, str] = {}
+        parent_links: list[tuple[str, str]] = []
+        validation_errors: list[str] = []
         
         # 1. Persist Capabilities
         for cap in graph_data.get("capabilities", []):
@@ -74,25 +91,55 @@ def persistence_agent(state: AgentState):
                 logger.warning("Skipping capability with null name.")
                 continue
                 
-            domain = cap.get("domain") or "General"
+            domain = cap.get("domain")
+            if not isinstance(domain, str) or not domain.strip():
+                validation_errors.append(f"Capability '{name}' is missing a valid domain.")
+                continue
+            domain = domain.strip()
             desc = cap.get("description") or ""
+            capability_domain_by_name[name] = domain
             neo4j_client.upsert_capability(tenant_id, domain, name, desc)
             
             parent = cap.get("parent_capability_name")
-            if parent:
-                neo4j_client.set_capability_parent(tenant_id, parent, name)
+            if isinstance(parent, str) and parent.strip():
+                parent_links.append((parent.strip(), name))
+
+        for parent_name, child_name in parent_links:
+            parent_domain = capability_domain_by_name.get(parent_name)
+            child_domain = capability_domain_by_name.get(child_name)
+            if parent_domain and child_domain and parent_domain != child_domain:
+                validation_errors.append(
+                    f"Capability hierarchy violation: '{parent_name}' ({parent_domain}) cannot parent '{child_name}' ({child_domain})."
+                )
+                continue
+            neo4j_client.set_capability_parent(tenant_id, parent_name, child_name)
             
         # 2. Persist Processes
         for process in graph_data.get("processes", []):
             process_name = process.get("name")
-            related_capability = process.get("related_capability_name")
-            if process_name and related_capability:
+            if not isinstance(process_name, str) or not process_name.strip():
+                continue
+            process_name = process_name.strip()
+            related_capabilities = _normalize_related_capabilities(process)
+            if not related_capabilities:
+                validation_errors.append(f"Process '{process_name}' has no related capabilities.")
+                continue
+
+            for related_capability in related_capabilities:
                 neo4j_client.upsert_process(
                     tenant_id,
                     related_capability,
                     process_name,
                     process.get("description") or ""
                 )
+
+        if validation_errors:
+            error_message = "; ".join(validation_errors)
+            logger.error(f"Validation failed before persistence commit completion: {error_message}")
+            return {
+                "status": "PERSISTENCE_ERROR",
+                "error": error_message
+            }
 
         # 3. Persist Applications
         for app in graph_data.get("applications", []):
