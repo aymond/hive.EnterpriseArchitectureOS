@@ -12,8 +12,17 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       packages: write
@@ -35,56 +44,71 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           
-      # GHCR requires Docker image names to be strictly lowercase.
-      # This step handles potential uppercase characters in your GitHub username or repo name.
       - name: Downcase Image Names
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "APP_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-app" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-frontend" >> $GITHUB_ENV
 
-      - name: Extract metadata (tags, labels) for App
-        id: meta-app
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.APP_IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-            type=ref,event=branch
-
-      - name: Build and push App image
+      - name: Build and push App image (Arch-specific)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-app.outputs.tags }}
-          labels: ${{ steps.meta-app.outputs.labels }}
+          tags: |
+            ${{ env.APP_IMAGE }}:latest-${{ matrix.arch }}
+            ${{ env.APP_IMAGE }}:${{ github.sha }}-${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract metadata (tags, labels) for Frontend
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-            type=ref,event=branch
-
-      - name: Build and push Frontend image
+      - name: Build and push Frontend image (Arch-specific)
         uses: docker/build-push-action@v5
         env:
-          NEXT_TELEMETRY_DISABLED: 1 # <--- Disables telemetry for this step
+          NEXT_TELEMETRY_DISABLED: 1
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest-${{ matrix.arch }}
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}-${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Downcase Image Names
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "APP_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-app" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-frontend" >> $GITHUB_ENV
+
+      - name: Create and push App multi-arch manifest
+        run: |
+          docker manifest create ${{ env.APP_IMAGE }}:latest \
+            ${{ env.APP_IMAGE }}:latest-amd64 \
+            ${{ env.APP_IMAGE }}:latest-arm64
+          docker manifest push ${{ env.APP_IMAGE }}:latest
+          
+      - name: Create and push Frontend multi-arch manifest
+        run: |
+          docker manifest create ${{ env.FRONTEND_IMAGE }}:latest \
+            ${{ env.FRONTEND_IMAGE }}:latest-amd64 \
+            ${{ env.FRONTEND_IMAGE }}:latest-arm64
+          docker manifest push ${{ env.FRONTEND_IMAGE }}:latest
