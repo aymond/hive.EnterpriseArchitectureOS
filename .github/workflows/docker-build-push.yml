@@ -77,6 +77,8 @@ jobs:
 
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
+        env:
+          NEXT_TELEMETRY_DISABLED: 1 # <--- Disables telemetry for this step
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
