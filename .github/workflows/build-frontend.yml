@@ -1,4 +1,4 @@
-name: Build and Push Docker Images to GHCR
+name: Build and Push Frontend to GHCR
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - 'v*'
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/build-frontend.yml'
   workflow_dispatch:
 
 env:
@@ -47,22 +50,7 @@ jobs:
       - name: Downcase Image Names
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "APP_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-app" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-frontend" >> $GITHUB_ENV
-
-      - name: Build and push App image (Arch-specific)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: ${{ matrix.platform }}
-          provenance: false
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ env.APP_IMAGE }}:latest-${{ matrix.arch }}
-            ${{ env.APP_IMAGE }}:${{ github.sha }}-${{ matrix.arch }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push Frontend image (Arch-specific)
         uses: docker/build-push-action@v5
@@ -98,18 +86,8 @@ jobs:
       - name: Downcase Image Names
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "APP_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-app" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=${{ env.REGISTRY }}/$REPO_LOWER-frontend" >> $GITHUB_ENV
 
-      - name: Create and push App multi-arch manifest
-        run: |
-          docker pull ${{ env.APP_IMAGE }}:latest-amd64
-          docker pull ${{ env.APP_IMAGE }}:latest-arm64
-          docker manifest create ${{ env.APP_IMAGE }}:latest \
-            ${{ env.APP_IMAGE }}:latest-amd64 \
-            ${{ env.APP_IMAGE }}:latest-arm64
-          docker manifest push ${{ env.APP_IMAGE }}:latest
-          
       - name: Create and push Frontend multi-arch manifest
         run: |
           docker pull ${{ env.FRONTEND_IMAGE }}:latest-amd64
