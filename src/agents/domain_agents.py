@@ -1,6 +1,7 @@
 import json
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
 
@@ -23,7 +24,12 @@ def create_domain_node(domain_name: str, domain_description: str):
     ])
     
     def domain_node(state: AgentState):
-        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
+        openai_api_key = state.get("openai_api_key")
+        llm = ChatOpenAI(
+            model="gpt-4o",
+            temperature=0,
+            api_key=SecretStr(openai_api_key) if openai_api_key else None
+        )
         chain = prompt | llm
         
         # Fetch existing capabilities from Neo4j for this domain

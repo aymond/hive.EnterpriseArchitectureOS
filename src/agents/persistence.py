@@ -5,6 +5,7 @@ from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from pydantic import SecretStr
 import os
 
 logger = logging.getLogger(__name__)
@@ -46,12 +47,18 @@ def persistence_agent(state: AgentState):
     ])
 
     try:
-        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
+        openai_api_key = state.get("openai_api_key")
+        llm = ChatOpenAI(
+            model="gpt-4o",
+            temperature=0,
+            api_key=SecretStr(openai_api_key) if openai_api_key else None
+        )
         chain = extractor_prompt | llm
         response = chain.invoke({"context": combined_context})
         
         # Clean response content (handle triple backticks if present)
-        content = response.content.strip()
+        raw_content = response.content if isinstance(response.content, str) else ""
+        content = raw_content.strip()
         if content.startswith("```json"):
             content = content[7:-3].strip()
         elif content.startswith("```"):

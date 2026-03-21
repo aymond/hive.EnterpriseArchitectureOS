@@ -1,6 +1,7 @@
 import json
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 from src.graph.state import AgentState
 
 def coordinator_agent(state: AgentState):
@@ -15,14 +16,20 @@ def coordinator_agent(state: AgentState):
         ("user", "Request: {query}")
     ])
     
-    llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
+    openai_api_key = state.get("openai_api_key")
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0,
+        api_key=SecretStr(openai_api_key) if openai_api_key else None
+    )
     chain = prompt | llm
     
     response = chain.invoke({"query": state["query"]})
+    response_content = response.content if isinstance(response.content, str) else "[]"
     
     try:
         # Parse the JSON array from the response
-        required_domains = json.loads(response.content)
+        required_domains = json.loads(response_content)
         if not isinstance(required_domains, list):
             required_domains = ["Enterprise", "Technology"] # Fallback
     except json.JSONDecodeError:
@@ -60,7 +67,12 @@ def synthesis_agent(state: AgentState):
                  "Quality Feedback: {quality_feedback}")
     ])
     
-    llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=state.get("openai_api_key"))
+    openai_api_key = state.get("openai_api_key")
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0,
+        api_key=SecretStr(openai_api_key) if openai_api_key else None
+    )
     chain = prompt | llm
     
     response = chain.invoke({
