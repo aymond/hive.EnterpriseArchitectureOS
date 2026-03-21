@@ -5,7 +5,7 @@ export async function submitEARequestStream(
   onComplete: (data: any) => void,
   onError: (error: string) => void
 ) {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000');
   
   try {
     const res = await fetch(`${backendUrl}/stream_request?query=${encodeURIComponent(query)}`, {
