@@ -72,22 +72,17 @@ builder.add_edge("Compliance", "Research")
 # Research goes to Quality Check
 builder.add_edge("Research", "QualityCheck")
 
-# Quality Check to Persistence (results analyzed regardless of pass/fail for now)
+# Split paths at QualityCheck
 builder.add_edge("QualityCheck", "Persistence")
+builder.add_edge("QualityCheck", "Synthesizer")
 
-# Persistence to Discovery
+# Path A: Knowledge Graph & Visual Modeling
 builder.add_edge("Persistence", "Discovery")
-
-# Discovery to Visualizer
 builder.add_edge("Discovery", "Visualizer")
+builder.add_edge("Visualizer", END)
 
-# Visualizer to Synthesizer
-builder.add_edge("Visualizer", "Synthesizer")
-
-# Synthesizer to Archivist
+# Path B: Final Synthesis & Archiving
 builder.add_edge("Synthesizer", "Archivist")
-
-# Archivist to output
 builder.add_edge("Archivist", END)
 
 # Compile Graph

@@ -1,11 +1,14 @@
+import json
 import logging
 import os
+import time
 
 import click
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from src.api.auth import router as auth_router, get_current_user
 from src.db.neo4j import neo4j_client
@@ -100,6 +103,64 @@ def handle_request(query: str, current_user: dict = Depends(get_current_user)):
         "quality_check": final_state.get("quality_status"),
         "response": final_state.get("final_response")
     }
+
+@app.post("/stream_request")
+def handle_stream_request(query: str, current_user: dict = Depends(get_current_user)):
+    """Process an enterprise architecture request and stream events via SSE."""
+    tenant_id = current_user["tenant_id"]
+    initial_state = {
+        "tenant_id": tenant_id,
+        "query": query,
+        "required_domains": [],
+        "domain_outputs": {},
+        "research_results": [],
+        "quality_status": "PENDING",
+        "quality_feedback": "",
+        "final_response": "",
+        "messages": []
+    }
+    
+    def event_generator():
+        start_time = time.time()
+        last_time = start_time
+        
+        aggregated_state = {}
+        
+        for event in graph.stream(initial_state):
+            current_time = time.time()
+            duration_ms = int((current_time - last_time) * 1000)
+            
+            for k, v in event.items():
+                if isinstance(v, dict):
+                    aggregated_state.update(v)
+                    
+                payload = {"node": k, "status": "completed", "duration_ms": duration_ms}
+                # Use string concatenation to avoid regex or templating backslash escaping bugs
+                yield "data: " + json.dumps(payload) + "\n\n"
+                
+            last_time = current_time
+            
+        # Stream has fully finished. Send the final composite response
+        total_duration = int((time.time() - start_time) * 1000)
+        final_payload = {
+            "node": "AgentOrchestrator",
+            "status": "final",
+            "total_duration_ms": total_duration,
+            "data": {
+                "status": "success", 
+                "query": query, 
+                "tenant_id": tenant_id,
+                "user_email": current_user["email"],
+                "engaged_domains": aggregated_state.get("required_domains", []),
+                "quality_check": aggregated_state.get("quality_status"),
+                "response": aggregated_state.get("final_response"),
+                "visualization": aggregated_state.get("visualization")
+            }
+        }
+        
+        yield "data: " + json.dumps(final_payload) + "\n\n"
+                
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @click.group()
 def cli():

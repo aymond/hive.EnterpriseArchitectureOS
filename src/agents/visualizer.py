@@ -9,8 +9,10 @@ def sanitize_id(name: str) -> str:
     return "".join(c if c.isalnum() or c == '_' else '_' for c in name)
 
 def escape_label(name: str) -> str:
-    """Escape double quotes in labels for Mermaid."""
-    return name.replace('"', '#quot;')
+    """Escape double quotes and replace physical newlines in labels for Mermaid."""
+    # Mermaid labels break if they contain actual unescaped physical newlines
+    if not name: return ""
+    return name.replace('"', '#quot;').replace('\n', ' ').replace('\r', '')
 
 def visualizer_agent(state: AgentState):
     """
@@ -72,7 +74,7 @@ def visualizer_agent(state: AgentState):
                 mermaid_lines.append(f'    {cap_id}["{cap_label}"]')
                 defined_nodes.add(cap_id)
 
-        mermaid = "```mermaid\n" + "\n".join(mermaid_lines) + "\n```"
+        mermaid = "\n".join(mermaid_lines)
         
         logger.info("Successfully generated Mermaid visualization.")
         return {"visualization": mermaid}

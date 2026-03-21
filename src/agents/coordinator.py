@@ -44,12 +44,10 @@ def synthesis_agent(state: AgentState):
                    "- Bold UI elements or key terms for emphasis.\n"
                    "- Maintain a professional, objective tone.\n"
                    "- Ensure consistent terminology across all sections.\n"
-                   "- **IMPORTANT**: If a visualization (Mermaid diagram) is provided, incorporate it into the document under a 'Capability Map' or 'Visual Architecture' section.\n"
                    "Output Markdown formatted text."),
         ("user", "Initial Request: {query}\n"
                  "Domain Outputs: {domain_outputs}\n"
                  "Research Results: {research_results}\n"
-                 "Visualization: {visualization}\n"
                  "Quality Status: {quality_status}\n"
                  "Quality Feedback: {quality_feedback}")
     ])
@@ -60,7 +58,6 @@ def synthesis_agent(state: AgentState):
         "query": state["query"],
         "domain_outputs": state.get("domain_outputs", {}),
         "research_results": state.get("research_results", []),
-        "visualization": state.get("visualization", ""),
         "quality_status": state.get("quality_status", "UNKNOWN"),
         "quality_feedback": state.get("quality_feedback", "None provided.")
     })

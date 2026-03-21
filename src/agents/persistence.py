@@ -66,27 +66,41 @@ def persistence_agent(state: AgentState):
                 logger.warning("Skipping capability with null name.")
                 continue
                 
-            neo4j_client.upsert_capability(tenant_id, cap.get("domain", "General"), name, cap.get("description", ""))
-            if cap.get("parent_capability_name"):
-                neo4j_client.set_capability_parent(tenant_id, cap.get("parent_capability_name"), name)
+            domain = cap.get("domain") or "General"
+            desc = cap.get("description") or ""
+            neo4j_client.upsert_capability(tenant_id, domain, name, desc)
+            
+            parent = cap.get("parent_capability_name")
+            if parent:
+                neo4j_client.set_capability_parent(tenant_id, parent, name)
             
         # 2. Persist Applications
         for app in graph_data.get("applications", []):
-            neo4j_client.upsert_application(tenant_id, app.get("fulfilled_capability_name"), app.get("name"), app.get("description", ""))
+            fulfilled = app.get("fulfilled_capability_name")
+            app_name = app.get("name")
+            if app_name and fulfilled:
+                neo4j_client.upsert_application(tenant_id, fulfilled, app_name, app.get("description") or "")
 
         # 3. Persist Technologies
         for tech in graph_data.get("technologies", []):
-            neo4j_client.upsert_technology(tenant_id, tech.get("supported_app_name"), tech.get("name"), tech.get("category", ""))
+            supported = tech.get("supported_app_name")
+            tech_name = tech.get("name")
+            if tech_name and supported:
+                neo4j_client.upsert_technology(tenant_id, supported, tech_name, tech.get("category") or "")
 
         # 4. Persist Vendor Products
         for v in graph_data.get("vendors", []):
-            neo4j_client.upsert_vendor_product(
-                tenant_id,
-                v.get("name"), 
-                v.get("product"), 
-                v.get("entity_type", "Capability"), 
-                v.get("fulfilling_entity_name")
-            )
+            v_name = v.get("name")
+            product = v.get("product")
+            fulfilling = v.get("fulfilling_entity_name")
+            if v_name and fulfilling:
+                neo4j_client.upsert_vendor_product(
+                    tenant_id,
+                    v_name, 
+                    product or "", 
+                    v.get("entity_type") or "Capability", 
+                    fulfilling
+                )
 
         involved_capabilities = [cap.get("name") for cap in graph_data.get("capabilities", []) if cap.get("name")]
 

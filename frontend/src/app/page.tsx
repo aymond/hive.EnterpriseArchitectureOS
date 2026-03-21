@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { submitEARequest, fetchProposals, getProposalById } from "./actions";
+import { fetchProposals, getProposalById } from "./actions";
+import { submitEARequestStream } from "@/lib/stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Mermaid from "@/components/Mermaid";
@@ -17,6 +18,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [showRepo, setShowRepo] = useState(false);
+  const [activeNodes, setActiveNodes] = useState<{node: string, duration?: number}[]>([]);
+  const [totalTime, setTotalTime] = useState<number | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -55,16 +58,26 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setActiveNodes([]);
+    setTotalTime(null);
 
-    const res = await submitEARequest(query, token);
-
-    if (res.success) {
-      setResult(res.data);
-      loadProposals(token);
-    } else {
-      setError(res.error || "An unknown error occurred while connecting to the Agents.");
-    }
-    setLoading(false);
+    submitEARequestStream(
+      query,
+      token,
+      (event) => {
+        setActiveNodes((prev) => [...prev, { node: event.node, duration: event.duration_ms }]);
+      },
+      (finalData) => {
+        setResult(finalData.data ? finalData.data : finalData);
+        setTotalTime(finalData.total_duration_ms || null);
+        setLoading(false);
+        loadProposals(token);
+      },
+      (err) => {
+        setError(err);
+        setLoading(false);
+      }
+    );
   };
 
   if (isLoading) {
@@ -259,12 +272,44 @@ export default function Home() {
             </div>
           )}
 
+          {/* Agent Activity Live Stream */}
+          {loading && (
+             <div className="max-w-3xl mx-auto mt-12 py-8 px-10 rounded-[2.5rem] bg-neutral-900/60 border border-neutral-800 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+               <div className="flex items-center justify-between mb-8">
+                 <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                   Agent Orchestration Network
+                 </h3>
+                 <span className="text-xs font-bold text-neutral-500 font-mono tracking-tighter">live stream</span>
+               </div>
+               
+               <div className="space-y-4 font-mono text-sm leading-relaxed">
+                 <div className="flex items-start gap-4 text-neutral-400">
+                    <span className="text-emerald-500 font-black">✓</span>
+                    <span className="text-emerald-400">Initializing session...</span>
+                 </div>
+
+                 {activeNodes.map((item, i) => (
+                   <div key={`${item.node}-${i}`} className="flex items-start gap-4 text-neutral-400 animate-in fade-in slide-in-from-left-4 duration-500">
+                      <span className="text-emerald-500 font-black">✓</span>
+                      <span><span className="text-indigo-400 font-bold">[{item.node}]</span> finished computational processing {item.duration && <span className="text-xs text-neutral-600 ml-2 font-mono">({item.duration}ms)</span>}</span>
+                   </div>
+                 ))}
+
+                 <div className="flex items-center gap-4 text-white font-medium bg-white/5 inline-flex px-4 py-2 rounded-xl mt-4 border border-white/10">
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Executing LLM inference...
+                 </div>
+               </div>
+             </div>
+          )}
+
           {/* Dynamic Result Display */}
           {result && (
             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out py-8 border-t border-neutral-800/30">
               
               {/* Metrics Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <StatusCard 
                   label="Context" 
                   value={result.engaged_domains?.length ? `${result.engaged_domains.length} Domains` : "Repository"} 
@@ -275,6 +320,13 @@ export default function Home() {
                   value={result.quality_check} 
                   status={result.quality_check === "APPROVED" ? "success" : "error"}
                 />
+                {totalTime && (
+                <StatusCard 
+                  label="Execution Time" 
+                  value={`${(totalTime / 1000).toFixed(2)}s`} 
+                  status="neutral"
+                />
+                )}
                 <StatusCard 
                   label="Origin" 
                   value={result.status === "HISTORICAL" ? "ARCHIVE" : "LIVE"} 
@@ -362,9 +414,24 @@ export default function Home() {
                     >
                       {result.content || result.response || ""}
                     </ReactMarkdown>
-                  </div>
 
-                  <footer className="mt-24 pt-10 border-t border-neutral-800/40 flex justify-between items-center">
+                    {result.visualization && (
+                      <div className="mt-16 w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                          </span>
+                          Visual Architecture
+                        </h3>
+                        <div className="w-full bg-neutral-900/60 rounded-[2rem] border border-neutral-800/80 overflow-hidden shadow-2xl relative">
+                          <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-indigo-500/50 to-emerald-500/50"></div>
+                          <div className="p-8 pb-10 min-h-[400px] flex items-center justify-center overflow-auto w-full">
+                            <Mermaid chart={result.visualization.replace(/```mermaid\n?/g, "").replace(/```/g, "").trim()} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>                  <footer className="mt-24 pt-10 border-t border-neutral-800/40 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                       <span className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600">Enterprise Orchestrator Active</span>
