@@ -182,6 +182,12 @@ class Neo4jClient:
         MERGE (u)-[:MEMBER_OF]->(t)
         RETURN u.email as email
         """
+        return self.query(cypher, {
+            "email": email,
+            "hashed_password": hashed_password,
+            "full_name": full_name,
+            "tenant_id": tenant_id
+        })
     def update_user_api_keys(self, email: str, encrypted_openai: Optional[str] = None, encrypted_tavily: Optional[str] = None):
         """Stores the symmetrically encrypted API keys on the User node."""
         sets = []
