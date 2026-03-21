@@ -88,6 +88,14 @@ graph TD
    - **Backend API**: `http://localhost:8000`
    - **Neo4j Browser**: `http://localhost:7474` (User: `neo4j`, Password: `password`)
 
+### Run from Pre-built GHCR Images (No cloning required)
+Our CI/CD pipeline pushes multi-architecture images (`linux/amd64`, `linux/arm64/v8`) directly to the GitHub Container Registry. If you don't want to clone the repo or build locally:
+1. Create a workspace folder and add your specific `.env` file (using the format from `.env.oci.example`).
+2. Download the `docker-compose.yml` file, but replace the `build:` blocks with the pre-built images:
+   - `image: ghcr.io/aymond/hive.enterprisearchitectureos-app:latest`
+   - `image: ghcr.io/aymond/hive.enterprisearchitectureos-frontend:latest`
+3. Run `docker compose pull && docker compose up -d`. Make sure your GHCR packages are public, or run `docker login ghcr.io` first.
+
 ### Cloud Deployment (OCI)
 To deploy this application to a production Oracle Cloud Infrastructure (OCI) Virtual Machine using Terraform and automated cloud-init scripts, please refer to the [OCI Deployment Guide](docs/OCI_DEPLOYMENT.md).
 

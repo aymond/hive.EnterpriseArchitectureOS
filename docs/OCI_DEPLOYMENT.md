@@ -7,9 +7,11 @@ This guide walks you through automatically provisioning an OCI Virtual Machine (
 The included Terraform configuration (`/terraform` directory) will:
 1. Create a **Virtual Cloud Network (VCN)** and public subnet.
 2. Configure **Security Lists** to expose ports 22 (SSH), 80 (HTTP), and 443 (HTTPS) to the internet.
-3. Provision an **Ubuntu Compute Instance** (defaults to `VM.Standard.E4.Flex`).
+3. Provision an **Ubuntu Compute Instance** (defaults to `VM.Standard.E4.Flex`, but ARM-based `VM.Standard.A1.Flex` is fully supported!).
 4. Automatically inject and execute `deploy.sh` as a startup script (`cloud-init`).
    *(This means the server will automatically install Docker, clone this repository, and start the containers upon first boot!)*
+
+All published Docker images are multi-architecture (`linux/amd64`, `linux/arm64/v8`) to support both Intel/AMD and Ampere ARM platforms seamlessly.
 
 ---
 
