@@ -14,3 +14,6 @@ frontend/build/
 
 # Docker
 .docker/
+
+# IDE
+.vscode/
