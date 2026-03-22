@@ -11,14 +11,20 @@ def research_agent(state: AgentState):
     """Research agent to identify suitable vendors and tools."""
     system_message = (
         "You are an Enterprise Architecture Sourcing Expert.\n"
-        "Review the identified capabilities from the domain experts and find leading market products/vendors.\n"
-        "Output a structured JSON list called 'vendors' where each item contains:\n"
-        "- 'name': Vendor Name\n"
-        "- 'product': Product Name\n"
-        "- 'capabilities_covered': List of capability names this product maps to.\n"
-        "Use the search tool for live market validation."
+        "Use the Canonical Capability Registry and domain expert outputs to ground vendor mapping.\n"
+        "When a web search tool is available, call it to validate current product names and positioning; "
+        "then synthesize findings into structured vendor recommendations.\n\n"
+        "Your FINAL message must be ONLY valid JSON (no markdown fences, no prose outside JSON) with this exact shape:\n"
+        '{"vendors": [{"name": "<vendor>", "product": "<product>", "capabilities_covered": ["<capability name>"]}]}\n'
+        "Use the keys exactly: name, product, capabilities_covered. Do not use vendor_name, product_name, or process_name.\n"
+        "Map capabilities_covered to names from the registry or domain outputs when possible."
     )
-    user_message = f"Capabilities: {state.get('domain_outputs', {})}\nQuery: {state['query']}"
+    registry = state.get("capability_registry") or "{}"
+    user_message = (
+        f"Canonical Capability Registry (JSON):\n{registry}\n\n"
+        f"Domain expert outputs (by domain):\n{state.get('domain_outputs', {})}\n\n"
+        f"User query:\n{state['query']}"
+    )
     
     openai_api_key = state.get("openai_api_key")
     model_id = resolve_chat_model(state)
@@ -47,19 +53,19 @@ def research_agent(state: AgentState):
         # Fallback if no Tavily key is provided
         fallback_prompt = ChatPromptTemplate.from_messages([
             ("system", "You are an Enterprise Architecture Sourcing Expert.\n"
-                       "Review the identified capabilities from the domain experts and find leading market products/vendors.\n"
-                       "Output a structured JSON list called 'vendors' where each item contains:\n"
-                       "- 'name': Vendor Name\n"
-                       "- 'product': Product Name\n"
-                       "- 'capabilities_covered': List of capability names this product maps to.\n"
-                       "Note: No search tool is available. Rely on your internal knowledge."),
-            ("user", "Capabilities: {domain_outputs}\nQuery: {query}")
+                       "No search tool is available — use internal knowledge only.\n"
+                       "Your response must be ONLY valid JSON (no markdown) with shape:\n"
+                       '{{"vendors": [{{"name": "<vendor>", "product": "<product>", "capabilities_covered": ["..."]}}]}}\n'
+                       "Use keys: name, product, capabilities_covered only."),
+            ("user", "Canonical registry:\n{capability_registry}\n\n"
+                     "Domain outputs:\n{domain_outputs}\n\nQuery:\n{query}")
         ])
         chain = fallback_prompt | llm
         log_llm_start("Research", model=model_id, tavily_enabled=tavily_enabled, mode="fallback_chain")
         response = chain.invoke({
             "query": state["query"],
-            "domain_outputs": state.get("domain_outputs", {})
+            "capability_registry": state.get("capability_registry") or "{}",
+            "domain_outputs": state.get("domain_outputs", {}),
         })
         log_llm_complete("Research", mode="fallback_chain", tavily_enabled=tavily_enabled)
         content = response.content if isinstance(response.content, str) else str(response.content)

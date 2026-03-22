@@ -67,6 +67,7 @@ def synthesis_agent(state: AgentState):
                        "5) ## Suggested next steps — Short checklist before re-running the analysis.\n"
                        "Use professional tone. Do not invent violations not stated in the governance details."),
             ("user", "Original request: {query}\n\n"
+                     "Canonical Capability Registry:\n{capability_registry}\n\n"
                      "Governance review details (verbatim from reviewer):\n{quality_feedback}\n\n"
                      "Optional context — Domain outputs (for your awareness only; do not override the reviewer):\n{domain_outputs}\n\n"
                      "Optional context — Research results:\n{research_results}")
@@ -75,6 +76,7 @@ def synthesis_agent(state: AgentState):
         log_llm_start("Synthesizer", model=model_id, mode="governance_rejected")
         response = chain.invoke({
             "query": state["query"],
+            "capability_registry": state.get("capability_registry") or "{}",
             "domain_outputs": state.get("domain_outputs", {}),
             "research_results": state.get("research_results", []),
             "quality_feedback": state.get("quality_feedback", "No details provided."),
@@ -106,6 +108,7 @@ def synthesis_agent(state: AgentState):
                    "In ## Process Model, explicitly list processes and their mapped capabilities.\n"
                    "Output Markdown formatted text."),
         ("user", "Initial Request: {query}\n"
+                 "Canonical Capability Registry:\n{capability_registry}\n\n"
                  "Domain Outputs: {domain_outputs}\n"
                  "Research Results: {research_results}\n"
                  "Quality Status: {quality_status}\n"
@@ -116,6 +119,7 @@ def synthesis_agent(state: AgentState):
     log_llm_start("Synthesizer", model=model_id, mode="full_proposal")
     response = chain.invoke({
         "query": state["query"],
+        "capability_registry": state.get("capability_registry") or "{}",
         "domain_outputs": state.get("domain_outputs", {}),
         "research_results": state.get("research_results", []),
         "quality_status": quality_status,

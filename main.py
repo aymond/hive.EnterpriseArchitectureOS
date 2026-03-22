@@ -104,6 +104,7 @@ def process_request(query: str, current_user: dict = Depends(get_current_user)):
         "tavily_api_key": tavily_api_key,
         "llm_model": llm_model,
         "required_domains": [],
+        "capability_registry": "",
         "domain_outputs": {},
         "research_results": [],
         "quality_status": "PENDING",
@@ -153,6 +154,7 @@ def handle_stream_request(query: str, current_user: dict = Depends(get_current_u
         "tavily_api_key": tavily_api_key,
         "llm_model": llm_model,
         "required_domains": [],
+        "capability_registry": "",
         "domain_outputs": {},
         "research_results": [],
         "quality_status": "PENDING",
@@ -225,6 +227,7 @@ def process(query):
         "tavily_api_key": os.getenv("TAVILY_API_KEY"),
         "llm_model": llm_model,
         "required_domains": [],
+        "capability_registry": "",
         "domain_outputs": {},
         "research_results": [],
         "quality_status": "PENDING",
@@ -237,6 +240,8 @@ def process(query):
         for k, v in event.items():
             if k == "Coordinator":
                 click.secho(f"Coordinator selected domains: {v.get('required_domains')}", fg="blue")
+            elif k == "DomainSteward":
+                click.secho("Domain Steward published canonical capability registry.", fg="blue")
             elif k in ["Strategy", "Enterprise", "Technology", "Security", "Data", "Process", "Compliance"]:
                 click.secho(f"{k} Agent finished analyzing the request.", fg="green")
             elif k == "Research":

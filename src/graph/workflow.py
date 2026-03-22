@@ -1,7 +1,7 @@
-from typing import Literal
 from langgraph.graph import StateGraph, START, END
 from src.graph.state import AgentState
 from src.agents.coordinator import coordinator_agent, synthesis_agent
+from src.agents.domain_steward import domain_steward_agent
 from src.agents.domain_agents import (
     strategy_agent, enterprise_agent, technology_agent, 
     security_agent, data_agent, process_agent, compliance_agent
@@ -18,6 +18,7 @@ builder = StateGraph(AgentState)
 
 # Add Nodes
 builder.add_node("Coordinator", coordinator_agent)
+builder.add_node("DomainSteward", domain_steward_agent)
 builder.add_node("Strategy", strategy_agent)
 builder.add_node("Enterprise", enterprise_agent)
 builder.add_node("Technology", technology_agent)
@@ -47,10 +48,11 @@ def route_to_domains(state: AgentState) -> list[str]:
 
 # Edges
 builder.add_edge(START, "Coordinator")
+builder.add_edge("Coordinator", "DomainSteward")
 
-# Conditional routing from Coordinator to selected domains
+# Conditional routing from Domain Steward to selected domain experts
 builder.add_conditional_edges(
-    "Coordinator",
+    "DomainSteward",
     route_to_domains,
     {
         "Strategy": "Strategy",

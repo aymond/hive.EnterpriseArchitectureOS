@@ -12,6 +12,47 @@ from src.agents.model_util import resolve_chat_model
 
 logger = logging.getLogger(__name__)
 
+def _reconcile_domains_with_registry(graph_data: dict, registry_json: str) -> None:
+    """Force capability.domain to match registry owning_domain when names align."""
+    try:
+        reg = json.loads(registry_json)
+        owners: dict[str, str] = {}
+        for c in reg.get("capabilities", []):
+            if not isinstance(c, dict):
+                continue
+            n, od = c.get("name"), c.get("owning_domain")
+            if isinstance(n, str) and n.strip() and isinstance(od, str) and od.strip():
+                owners[n.strip()] = od.strip()
+        for cap in graph_data.get("capabilities", []):
+            if not isinstance(cap, dict):
+                continue
+            name = cap.get("name")
+            if isinstance(name, str) and name.strip() in owners:
+                cap["domain"] = owners[name.strip()]
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+
+def _dedupe_capabilities_by_name(graph_data: dict) -> None:
+    caps = graph_data.get("capabilities")
+    if not isinstance(caps, list):
+        return
+    seen: set[str] = set()
+    out: list[dict] = []
+    for cap in caps:
+        if not isinstance(cap, dict):
+            continue
+        n = cap.get("name")
+        if not isinstance(n, str) or not n.strip():
+            continue
+        key = n.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(cap)
+    graph_data["capabilities"] = out
+
+
 def _normalize_related_capabilities(process: dict) -> list[str]:
     """Normalizes process capability references to a deduplicated list."""
     names = process.get("related_capability_names")
@@ -38,7 +79,12 @@ def persistence_agent(state: AgentState):
     logger.info("Persistence agent starting. Extracting graph structure via LLM...")
 
     # Combine all context for the extractor
-    combined_context = f"User Request: {state['query']}\n\n"
+    reg = (state.get("capability_registry") or "").strip() or "{}"
+    combined_context = (
+        "Canonical Capability Registry (use as source of truth for owning_domain when names match):\n"
+        f"{reg}\n\n"
+        f"User Request: {state['query']}\n\n"
+    )
     for domain, output in domain_outputs.items():
         combined_context += f"--- {domain} Domain Expert Output ---\n{output}\n\n"
     
@@ -55,6 +101,9 @@ def persistence_agent(state: AgentState):
                    "- Every capability must include a non-empty domain.\n"
                    "- If a capability has parent_capability_name, parent and child must belong to the same domain.\n"
                    "- Every process must include at least one related capability in related_capability_names.\n"
+                   "- Process objects MUST use the key 'name' (never 'process_name').\n"
+                   "- Each capability name must appear at most once in the output; no duplicate names with different domains.\n"
+                   "- When the registry lists a capability, set 'domain' to that capability's owning_domain from the registry.\n"
                    "- 'applications': {{name, description, fulfilled_capability_name}}\n"
                    "- 'technologies': {{name, category, supported_app_name}}\n"
                    "- 'vendors': {{name, product, fulfilling_entity_name, entity_type (Capability|Application|Technology)}}\n\n"
@@ -84,6 +133,8 @@ def persistence_agent(state: AgentState):
             content = content[3:-3].strip()
             
         graph_data = json.loads(content)
+        _reconcile_domains_with_registry(graph_data, state.get("capability_registry") or "{}")
+        _dedupe_capabilities_by_name(graph_data)
         tenant_id = state.get("tenant_id")
         capability_domain_by_name: dict[str, str] = {}
         parent_links: list[tuple[str, str]] = []
@@ -122,6 +173,10 @@ def persistence_agent(state: AgentState):
         # 2. Persist Processes
         for process in graph_data.get("processes", []):
             process_name = process.get("name")
+            if (not isinstance(process_name, str) or not process_name.strip()) and isinstance(
+                process.get("process_name"), str
+            ):
+                process_name = process.get("process_name")
             if not isinstance(process_name, str) or not process_name.strip():
                 continue
             process_name = process_name.strip()

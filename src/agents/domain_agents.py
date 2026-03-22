@@ -14,17 +14,33 @@ def create_domain_node(domain_name: str, domain_description: str):
         ("system", f"You are an Enterprise Architecture expert focused on the {domain_name} domain.\n"
                    f"Your focus is: {domain_description}\n"
                    "Analyze the user's request and propose a faceted model update.\n"
-                   "IMPORTANT: Review 'Existing Context' and avoid duplication.\n"
+                   "You work under a Canonical Capability Registry (see user message). It is authoritative for "
+                   "which capability belongs to which domain.\n"
+                   "RULES:\n"
+                   f"- Your domain is exactly \"{domain_name}\". Every entry in 'capabilities' MUST set "
+                   f'\"domain\": \"{domain_name}\".\n'
+                   "- Only include capabilities in 'capabilities' that the registry assigns to YOUR domain. "
+                   "Do NOT re-home or duplicate a capability owned by another domain under your domain.\n"
+                   "For capabilities owned by peer domains, you may reference them only in 'recommendations' or cross-domain notes, "
+                   "not as your owned capabilities.\n"
+                   "- Parent/child capability relationships you propose must stay within YOUR domain (same 'domain' value).\n"
+                   "- 'processes': use the key \"name\" for the process title (never \"process_name\"). "
+                   "Each process MUST include 'related_capability_names' (array) using exact capability names from the registry "
+                   "or names your domain legitimately owns.\n"
+                   "  Every process needs at least one related capability. A process may map to multiple capabilities.\n"
+                   "- Use consistent naming: reuse registry capability names verbatim when referring to the same thing.\n"
                    "Output a structured JSON containing:\n"
-                   "- 'capabilities': List of business/technical functions. Every capability must include domain.\n"
-                   "- 'processes': List of processes with process name, description, and related_capability_names (array).\n"
-                   "  A process may map to many capabilities, and capabilities may have many processes.\n"
-                   "  Never emit a process without at least one related capability.\n"
-                   "- 'applications': List of software systems/apps fulfilling those capabilities.\n"
-                   "- 'technologies': Underlying stack (platforms, infra) supporting the applications.\n"
+                   "- 'capabilities': List for YOUR domain only; each includes name, description, domain, parent_capability_name (optional).\n"
+                   "- 'processes': List with name, description, related_capability_names (array).\n"
+                   "- 'applications': List of software systems/apps fulfilling capabilities.\n"
+                   "- 'technologies': Underlying stack supporting the applications.\n"
                    "- 'business_drivers': Strategic goals.\n"
-                   "- 'recommendations': Architecture advice."),
-        ("user", "Request: {query}\n\nExisting Context from Neo4j: {existing_context}\nCurrent Peer Domain Outputs: {domain_outputs}")
+                   "- 'recommendations': Architecture advice.\n"
+                   "IMPORTANT: Review 'Existing Context' and avoid duplication."),
+        ("user", "Request: {query}\n\n"
+                 "Canonical Capability Registry (JSON — follow ownership strictly):\n{capability_registry}\n\n"
+                 "Existing Context from Neo4j: {existing_context}\n"
+                 "Current Peer Domain Outputs: {domain_outputs}")
     ])
     
     def domain_node(state: AgentState):
@@ -45,6 +61,7 @@ def create_domain_node(domain_name: str, domain_description: str):
         log_llm_start(domain_name, model=model_id)
         response = chain.invoke({
             "query": state["query"],
+            "capability_registry": state.get("capability_registry") or "{}",
             "existing_context": existing_context,
             "domain_outputs": state.get("domain_outputs", {})
         })

@@ -14,7 +14,10 @@ def quality_check_agent(state: AgentState):
                    "Enforce structure rules:\n"
                    "- Every capability must be assigned to a domain.\n"
                    "- Capability parent-child relationships must not cross domains.\n"
-                   "- Every process must be linked to one or more capabilities.\n\n"
+                   "- Every process must be linked to one or more capabilities.\n"
+                   "- When Canonical Capability Registry is provided, capability names must have a single owning domain "
+                   "consistent with that registry; domain expert JSON must not contradict it.\n"
+                   "- Process objects must use the key 'name' for the process title (not 'process_name').\n\n"
                    "You MUST respond using one of the two formats below (no other opening line):\n\n"
                    "If the work is acceptable:\n"
                    "STATUS: APPROVED\n"
@@ -29,7 +32,10 @@ def quality_check_agent(state: AgentState):
                    "## Suggested next steps\n"
                    "- Short checklist the user or agents can follow before re-submitting.\n\n"
                    "Do not approve and reject in the same response. The first line must be STATUS: APPROVED or STATUS: REJECTED."),
-        ("user", "Request: {query}\n\nDomain Outputs: {domain_outputs}\n\nResearch Results: {research_results}")
+        ("user", "Request: {query}\n\n"
+                 "Canonical Capability Registry (JSON):\n{capability_registry}\n\n"
+                 "Domain Outputs: {domain_outputs}\n\n"
+                 "Research Results: {research_results}")
     ])
     
     openai_api_key = state.get("openai_api_key")
@@ -44,6 +50,7 @@ def quality_check_agent(state: AgentState):
     log_llm_start("QualityCheck", model=model_id)
     response = chain.invoke({
         "query": state.get("query"),
+        "capability_registry": state.get("capability_registry") or "{}",
         "domain_outputs": state.get("domain_outputs", {}),
         "research_results": state.get("research_results", [])
     })

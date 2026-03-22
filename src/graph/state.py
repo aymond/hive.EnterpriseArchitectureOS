@@ -23,6 +23,9 @@ class AgentState(TypedDict):
     
     # Track which domains should be engaged
     required_domains: List[str]
+
+    # JSON string: canonical domains + capabilities with single owning_domain (from Domain Steward)
+    capability_registry: str
     
     # The current findings and capability updates from domains
     # Using Annotated and a reducer to handle concurrent writes from domain agents

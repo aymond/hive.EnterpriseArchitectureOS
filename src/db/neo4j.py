@@ -43,11 +43,15 @@ class Neo4jClient:
             raise
 
     def upsert_capability(self, tenant_id, domain, name, description):
-        """Creates or updates a capability node and links it to a domain."""
+        """Creates or updates a capability and links it to exactly one domain (removes other domain links)."""
         query = """
-        MERGE (d:Domain {name: $domain, tenant_id: $tenant_id})
         MERGE (c:Capability {name: $name, tenant_id: $tenant_id})
         SET c.description = $description
+        WITH c
+        OPTIONAL MATCH (old_d:Domain {tenant_id: $tenant_id})-[r:HAS_CAPABILITY]->(c)
+        DELETE r
+        WITH c
+        MERGE (d:Domain {name: $domain, tenant_id: $tenant_id})
         MERGE (d)-[:HAS_CAPABILITY]->(c)
         RETURN c
         """
