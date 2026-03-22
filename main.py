@@ -118,6 +118,7 @@ def process_request(query: str, current_user: dict = Depends(get_current_user)):
         "user_email": current_user["email"],
         "engaged_domains": final_state.get("required_domains", []),
         "quality_check": final_state.get("quality_status"),
+        "quality_feedback": final_state.get("quality_feedback"),
         "response": final_state.get("final_response")
     }
 
@@ -186,6 +187,7 @@ def handle_stream_request(query: str, current_user: dict = Depends(get_current_u
                 "user_email": current_user["email"],
                 "engaged_domains": aggregated_state.get("required_domains", []),
                 "quality_check": aggregated_state.get("quality_status"),
+                "quality_feedback": aggregated_state.get("quality_feedback"),
                 "response": aggregated_state.get("final_response"),
                 "visualization": aggregated_state.get("visualization")
             }

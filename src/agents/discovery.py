@@ -63,8 +63,10 @@ def discovery_agent(state: AgentState):
         log_llm_complete("Discovery")
 
         # IMPROVED: Clean and parse JSON
-        content = response.content.strip()
-        logger.info(f"Discovery agent raw response: {content[:100]}...") # Log start of response
+        raw_content = response.content if isinstance(response.content, str) else str(response.content)
+        content = raw_content.strip()
+        preview = content[:100] + ("..." if len(content) > 100 else "")
+        logger.info("Discovery agent raw response: %s", preview)
         
         # Use regex to find the first JSON array in the response
         import re

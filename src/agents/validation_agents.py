@@ -13,8 +13,21 @@ def quality_check_agent(state: AgentState):
                    "Enforce structure rules:\n"
                    "- Every capability must be assigned to a domain.\n"
                    "- Capability parent-child relationships must not cross domains.\n"
-                   "- Every process must be linked to one or more capabilities.\n"
-                   "If approved, state 'APPROVED'. If rejected, provide specific 'REJECTED: <feedback>'."),
+                   "- Every process must be linked to one or more capabilities.\n\n"
+                   "You MUST respond using one of the two formats below (no other opening line):\n\n"
+                   "If the work is acceptable:\n"
+                   "STATUS: APPROVED\n"
+                   "Optional: one short sentence summarizing what passed review.\n\n"
+                   "If the work must be rejected:\n"
+                   "STATUS: REJECTED\n"
+                   "## Rejection reason\n"
+                   "- Use bullet points. Be specific (what failed, which rule or gap).\n"
+                   "## How to improve\n"
+                   "- Use bullet points. Give concrete, actionable fixes (e.g. add domain X to capability Y, "
+                   "link process Z to capabilities A and B, fix parent-child across domains).\n"
+                   "## Suggested next steps\n"
+                   "- Short checklist the user or agents can follow before re-submitting.\n\n"
+                   "Do not approve and reject in the same response. The first line must be STATUS: APPROVED or STATUS: REJECTED."),
         ("user", "Request: {query}\n\nDomain Outputs: {domain_outputs}\n\nResearch Results: {research_results}")
     ])
     
@@ -33,10 +46,29 @@ def quality_check_agent(state: AgentState):
         "research_results": state.get("research_results", [])
     })
     log_llm_complete("QualityCheck")
-    
-    status = "APPROVED" if "APPROVED" in response.content.upper() else "REJECTED"
-    
+
+    raw = response.content if isinstance(response.content, str) else str(response.content)
+    text = raw.strip()
+    first_line = text.split("\n", 1)[0].strip().upper() if text else ""
+
+    if first_line.startswith("STATUS:"):
+        if "REJECT" in first_line:
+            status = "REJECTED"
+        elif "APPROV" in first_line:
+            status = "APPROVED"
+        else:
+            status = "REJECTED"
+    else:
+        # Legacy responses without STATUS line
+        upper = text.upper()
+        if "STATUS: REJECTED" in upper:
+            status = "REJECTED"
+        elif "STATUS: APPROVED" in upper:
+            status = "APPROVED"
+        else:
+            status = "APPROVED" if "APPROVED" in upper and "REJECT" not in upper else "REJECTED"
+
     return {
         "quality_status": status,
-        "quality_feedback": response.content
+        "quality_feedback": raw,
     }

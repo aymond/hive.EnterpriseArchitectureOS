@@ -420,6 +420,14 @@ export default function Home() {
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500/50 via-cyan-500/50 to-emerald-500/50 opacity-30 group-hover/doc:opacity-100 transition duration-1000"></div>
                 
                 <div className="p-10 md:p-20">
+                  {result.quality_check && result.quality_check !== "APPROVED" && result.quality_feedback && (
+                    <div className="mb-10 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-5 text-amber-100">
+                      <p className="text-xs font-black uppercase tracking-widest text-amber-400 mb-2">Governance feedback (reviewer)</p>
+                      <div className="prose prose-invert prose-sm max-w-none text-amber-100/90 prose-headings:text-amber-200 prose-strong:text-amber-100">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.quality_feedback}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
                   <header className="mb-16 pb-12 border-b border-neutral-800/40 flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
                     <div className="space-y-4">
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black tracking-widest uppercase mb-2 ring-1 ring-indigo-500/20">

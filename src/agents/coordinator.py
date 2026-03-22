@@ -43,6 +43,43 @@ def coordinator_agent(state: AgentState):
 
 def synthesis_agent(state: AgentState):
     """Synthesizes the final EA response from all gathered domain outputs and research."""
+    openai_api_key = state.get("openai_api_key")
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0,
+        api_key=SecretStr(openai_api_key) if openai_api_key else None
+    )
+
+    quality_status = state.get("quality_status", "UNKNOWN")
+    if quality_status == "REJECTED":
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are the Chief Enterprise Architect communicating a governance outcome to stakeholders.\n"
+                       "The quality review REJECTED this run. Do NOT present a full approved architecture proposal.\n"
+                       "Produce clear Markdown for the user with this exact structure:\n"
+                       "1) # Governance outcome: Rejected\n"
+                       "2) ## Summary — Briefly state that the proposal did not pass governance and reference the original request.\n"
+                       "3) ## Why it was rejected — Use bullet points. Base this ONLY on 'Governance review details' below; "
+                       "if a section is missing there, say so and quote what is available.\n"
+                       "4) ## How to improve — Use bullet points. Concrete, actionable changes (data model, process links, domains, etc.).\n"
+                       "5) ## Suggested next steps — Short checklist before re-running the analysis.\n"
+                       "Use professional tone. Do not invent violations not stated in the governance details."),
+            ("user", "Original request: {query}\n\n"
+                     "Governance review details (verbatim from reviewer):\n{quality_feedback}\n\n"
+                     "Optional context — Domain outputs (for your awareness only; do not override the reviewer):\n{domain_outputs}\n\n"
+                     "Optional context — Research results:\n{research_results}")
+        ])
+        chain = prompt | llm
+        log_llm_start("Synthesizer", model="gpt-4o", mode="governance_rejected")
+        response = chain.invoke({
+            "query": state["query"],
+            "domain_outputs": state.get("domain_outputs", {}),
+            "research_results": state.get("research_results", []),
+            "quality_feedback": state.get("quality_feedback", "No details provided."),
+        })
+        log_llm_complete("Synthesizer", mode="governance_rejected")
+        out = response.content if isinstance(response.content, str) else str(response.content)
+        return {"final_response": out}
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are the Chief Enterprise Architect.\n"
                    "Synthesize the consolidated findings from the domain experts and the vendor research into a final cohesive Enterprise Architecture proposal.\n"
@@ -71,23 +108,17 @@ def synthesis_agent(state: AgentState):
                  "Quality Status: {quality_status}\n"
                  "Quality Feedback: {quality_feedback}")
     ])
-    
-    openai_api_key = state.get("openai_api_key")
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0,
-        api_key=SecretStr(openai_api_key) if openai_api_key else None
-    )
     chain = prompt | llm
-    
-    log_llm_start("Synthesizer", model="gpt-4o")
+
+    log_llm_start("Synthesizer", model="gpt-4o", mode="full_proposal")
     response = chain.invoke({
         "query": state["query"],
         "domain_outputs": state.get("domain_outputs", {}),
         "research_results": state.get("research_results", []),
-        "quality_status": state.get("quality_status", "UNKNOWN"),
+        "quality_status": quality_status,
         "quality_feedback": state.get("quality_feedback", "None provided.")
     })
-    log_llm_complete("Synthesizer")
-    
-    return {"final_response": response.content}
+    log_llm_complete("Synthesizer", mode="full_proposal")
+
+    out = response.content if isinstance(response.content, str) else str(response.content)
+    return {"final_response": out}
