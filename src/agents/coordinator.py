@@ -3,6 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from src.graph.state import AgentState
+from src.agents.llm_logging import log_llm_start, log_llm_complete
 
 def coordinator_agent(state: AgentState):
     """Chief EA Coordinator - Analyzes the user request and determines which domains to engage."""
@@ -24,7 +25,9 @@ def coordinator_agent(state: AgentState):
     )
     chain = prompt | llm
     
+    log_llm_start("Coordinator", model="gpt-4o")
     response = chain.invoke({"query": state["query"]})
+    log_llm_complete("Coordinator")
     response_content = response.content if isinstance(response.content, str) else "[]"
     
     try:
@@ -77,6 +80,7 @@ def synthesis_agent(state: AgentState):
     )
     chain = prompt | llm
     
+    log_llm_start("Synthesizer", model="gpt-4o")
     response = chain.invoke({
         "query": state["query"],
         "domain_outputs": state.get("domain_outputs", {}),
@@ -84,5 +88,6 @@ def synthesis_agent(state: AgentState):
         "quality_status": state.get("quality_status", "UNKNOWN"),
         "quality_feedback": state.get("quality_feedback", "None provided.")
     })
+    log_llm_complete("Synthesizer")
     
     return {"final_response": response.content}

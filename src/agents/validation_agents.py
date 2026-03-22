@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from src.graph.state import AgentState
+from src.agents.llm_logging import log_llm_start, log_llm_complete
 
 def quality_check_agent(state: AgentState):
     """Quality Check / Governance Agent."""
@@ -25,11 +26,13 @@ def quality_check_agent(state: AgentState):
     )
     chain = prompt | llm
     
+    log_llm_start("QualityCheck", model="gpt-4o")
     response = chain.invoke({
         "query": state.get("query"),
         "domain_outputs": state.get("domain_outputs", {}),
         "research_results": state.get("research_results", [])
     })
+    log_llm_complete("QualityCheck")
     
     status = "APPROVED" if "APPROVED" in response.content.upper() else "REJECTED"
     

@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
+from src.agents.llm_logging import log_llm_start, log_llm_complete
 
 # We assume OPENAI_API_KEY is available in the AgentState
 def create_domain_node(domain_name: str, domain_description: str):
@@ -39,11 +40,13 @@ def create_domain_node(domain_name: str, domain_description: str):
         existing_data = neo4j_client.query(query, {"domain": domain_name})
         existing_context = json.dumps(existing_data) if existing_data else "None found."
 
+        log_llm_start(domain_name, model="gpt-4o")
         response = chain.invoke({
             "query": state["query"],
             "existing_context": existing_context,
             "domain_outputs": state.get("domain_outputs", {})
         })
+        log_llm_complete(domain_name)
         
         # Update state domain outputs
         current_outputs = state.get("domain_outputs", {})
