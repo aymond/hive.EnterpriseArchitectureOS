@@ -9,6 +9,11 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from src.db.neo4j import neo4j_client
 from src.api.security import encrypt_key
+from src.config.openai_models import (
+    ALLOWED_LLM_MODELS,
+    DEFAULT_LLM_MODEL,
+    normalize_llm_model,
+)
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "supersecretkey_change_me_in_prod")
@@ -33,6 +38,10 @@ class Token(BaseModel):
 class APIKeyUpdate(BaseModel):
     openai_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
+
+
+class LLMModelUpdate(BaseModel):
+    llm_model: str
 
 # Helpers
 
@@ -84,7 +93,8 @@ async def register(user: UserRegister):
         email=user.email,
         hashed_password=hashed_password,
         full_name=user.full_name,
-        tenant_id=user.tenant_id
+        tenant_id=user.tenant_id,
+        llm_model=DEFAULT_LLM_MODEL,
     )
     return {"message": "User registered successfully"}
 
@@ -113,7 +123,30 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     # Don't return the password
     user_data: dict = dict(user)
     user_data.pop('password', None)
+    raw_model = neo4j_client.get_user_llm_model(current_user["email"])
+    user_data["llm_model"] = normalize_llm_model(raw_model)
     return user_data
+
+
+@router.get("/llm-models")
+async def list_llm_models():
+    """Public allowlist for profile UI."""
+    return {"models": ALLOWED_LLM_MODELS, "default": DEFAULT_LLM_MODEL}
+
+
+@router.put("/llm-model")
+async def update_llm_model(
+    body: LLMModelUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    cleaned = body.llm_model.strip()
+    if cleaned not in ALLOWED_LLM_MODELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid llm_model. Allowed: {ALLOWED_LLM_MODELS}",
+        )
+    neo4j_client.set_user_llm_model(current_user["email"], cleaned)
+    return {"message": "LLM model preference saved.", "llm_model": cleaned}
 
 @router.put("/api-keys")
 async def update_api_keys(keys: APIKeyUpdate, current_user: dict = Depends(get_current_user)):

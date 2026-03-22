@@ -17,6 +17,9 @@ class AgentState(TypedDict):
     
     # Decrypted Tavily API Key provided by the user profile
     tavily_api_key: Optional[str]
+
+    # OpenAI chat model id from user profile (e.g. gpt-4o)
+    llm_model: str
     
     # Track which domains should be engaged
     required_domains: List[str]

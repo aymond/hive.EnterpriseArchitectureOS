@@ -78,6 +78,43 @@ export async function fetchApiKeyStatus(authToken: string) {
   }
 }
 
+export async function fetchLlmModels() {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/llm-models`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+    return {
+      success: true as const,
+      models: data.models as string[],
+      defaultModel: data.default as string,
+    };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export async function updateLlmModel(authToken: string, llm_model: string) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/llm-model`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ llm_model }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(errBody || `API error: ${res.status}`);
+    }
+    return { success: true as const };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
 export async function updateApiKey(authToken: string, apiKey: string, tavilyKey: string) {
   const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
   try {

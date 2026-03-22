@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import SecretStr
 import os
 from src.agents.llm_logging import log_llm_start, log_llm_complete
+from src.agents.model_util import resolve_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +64,14 @@ def persistence_agent(state: AgentState):
 
     try:
         openai_api_key = state.get("openai_api_key")
+        model_id = resolve_chat_model(state)
         llm = ChatOpenAI(
-            model="gpt-4o",
+            model=model_id,
             temperature=0,
             api_key=SecretStr(openai_api_key) if openai_api_key else None
         )
         chain = extractor_prompt | llm
-        log_llm_start("Persistence", model="gpt-4o")
+        log_llm_start("Persistence", model=model_id)
         response = chain.invoke({"context": combined_context})
         log_llm_complete("Persistence")
         

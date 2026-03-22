@@ -15,6 +15,7 @@ interface AuthContextType {
   token: string | null;
   login: (token: string) => Promise<void>;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -58,6 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    const savedToken = localStorage.getItem('auth_token');
+    if (savedToken) {
+      await fetchUserProfile(savedToken);
+    }
+  };
+
   const login = async (newToken: string) => {
     localStorage.setItem('auth_token', newToken);
     // Set cookie for middleware
@@ -77,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, refreshProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

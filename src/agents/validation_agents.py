@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.agents.llm_logging import log_llm_start, log_llm_complete
+from src.agents.model_util import resolve_chat_model
 
 def quality_check_agent(state: AgentState):
     """Quality Check / Governance Agent."""
@@ -32,14 +33,15 @@ def quality_check_agent(state: AgentState):
     ])
     
     openai_api_key = state.get("openai_api_key")
+    model_id = resolve_chat_model(state)
     llm = ChatOpenAI(
-        model="gpt-4o",
+        model=model_id,
         temperature=0,
         api_key=SecretStr(openai_api_key) if openai_api_key else None
     )
     chain = prompt | llm
     
-    log_llm_start("QualityCheck", model="gpt-4o")
+    log_llm_start("QualityCheck", model=model_id)
     response = chain.invoke({
         "query": state.get("query"),
         "domain_outputs": state.get("domain_outputs", {}),

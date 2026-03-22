@@ -5,6 +5,7 @@ from langchain_tavily import TavilySearch
 from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.agents.llm_logging import log_llm_start, log_llm_complete
+from src.agents.model_util import resolve_chat_model
 
 def research_agent(state: AgentState):
     """Research agent to identify suitable vendors and tools."""
@@ -20,8 +21,9 @@ def research_agent(state: AgentState):
     user_message = f"Capabilities: {state.get('domain_outputs', {})}\nQuery: {state['query']}"
     
     openai_api_key = state.get("openai_api_key")
+    model_id = resolve_chat_model(state)
     llm = ChatOpenAI(
-        model="gpt-4o",
+        model=model_id,
         temperature=0.2,
         api_key=SecretStr(openai_api_key) if openai_api_key else None
     )
@@ -36,7 +38,7 @@ def research_agent(state: AgentState):
     if tools:
         agent_executor = create_react_agent(llm, tools)
         user_message_with_system = f"{system_message}\n\n{user_message}"
-        log_llm_start("Research", model="gpt-4o", tavily_enabled=tavily_enabled, mode="react_agent")
+        log_llm_start("Research", model=model_id, tavily_enabled=tavily_enabled, mode="react_agent")
         response = agent_executor.invoke({"messages": [("user", user_message_with_system)]})
         log_llm_complete("Research", mode="react_agent", tavily_enabled=tavily_enabled)
         response_content = response["messages"][-1].content
@@ -54,7 +56,7 @@ def research_agent(state: AgentState):
             ("user", "Capabilities: {domain_outputs}\nQuery: {query}")
         ])
         chain = fallback_prompt | llm
-        log_llm_start("Research", model="gpt-4o", tavily_enabled=tavily_enabled, mode="fallback_chain")
+        log_llm_start("Research", model=model_id, tavily_enabled=tavily_enabled, mode="fallback_chain")
         response = chain.invoke({
             "query": state["query"],
             "domain_outputs": state.get("domain_outputs", {})

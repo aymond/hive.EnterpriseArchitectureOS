@@ -14,6 +14,7 @@ from src.api.auth import router as auth_router, get_current_user
 from src.db.neo4j import neo4j_client
 from src.graph.workflow import graph
 from src.api.security import decrypt_key
+from src.config.openai_models import normalize_llm_model
 
 load_dotenv()
 
@@ -94,11 +95,14 @@ def process_request(query: str, current_user: dict = Depends(get_current_user)):
     if not openai_api_key:
         raise HTTPException(status_code=400, detail="Failed to decrypt OpenAI API Key. The system secret may have changed.")
 
+    llm_model = normalize_llm_model(neo4j_client.get_user_llm_model(current_user["email"]))
+
     initial_state = {
         "tenant_id": tenant_id,
         "query": query,
         "openai_api_key": openai_api_key,
         "tavily_api_key": tavily_api_key,
+        "llm_model": llm_model,
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],
@@ -140,11 +144,14 @@ def handle_stream_request(query: str, current_user: dict = Depends(get_current_u
     if not openai_api_key:
         raise HTTPException(status_code=400, detail="Failed to decrypt OpenAI API Key. The system secret may have changed.")
 
+    llm_model = normalize_llm_model(neo4j_client.get_user_llm_model(current_user["email"]))
+
     initial_state = {
         "tenant_id": tenant_id,
         "query": query,
         "openai_api_key": openai_api_key,
         "tavily_api_key": tavily_api_key,
+        "llm_model": llm_model,
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],
@@ -208,12 +215,15 @@ def process(query):
     """Process an enterprise architecture request via CLI."""
     click.echo(f"Received request: {query}")
     click.echo("Starting Chief EA Coordinator Analysis...")
-    
+
+    llm_model = normalize_llm_model(os.getenv("OPENAI_LLM_MODEL"))
+
     initial_state = {
         "tenant_id": "cli_test_tenant",
         "query": query,
         "openai_api_key": os.getenv("OPENAI_API_KEY"),
         "tavily_api_key": os.getenv("TAVILY_API_KEY"),
+        "llm_model": llm_model,
         "required_domains": [],
         "domain_outputs": {},
         "research_results": [],

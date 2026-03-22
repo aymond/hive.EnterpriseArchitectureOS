@@ -5,6 +5,7 @@ from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
 from src.agents.llm_logging import log_llm_start, log_llm_complete
+from src.agents.model_util import resolve_chat_model
 
 # We assume OPENAI_API_KEY is available in the AgentState
 def create_domain_node(domain_name: str, domain_description: str):
@@ -28,8 +29,9 @@ def create_domain_node(domain_name: str, domain_description: str):
     
     def domain_node(state: AgentState):
         openai_api_key = state.get("openai_api_key")
+        model_id = resolve_chat_model(state)
         llm = ChatOpenAI(
-            model="gpt-4o",
+            model=model_id,
             temperature=0,
             api_key=SecretStr(openai_api_key) if openai_api_key else None
         )
@@ -40,7 +42,7 @@ def create_domain_node(domain_name: str, domain_description: str):
         existing_data = neo4j_client.query(query, {"domain": domain_name})
         existing_context = json.dumps(existing_data) if existing_data else "None found."
 
-        log_llm_start(domain_name, model="gpt-4o")
+        log_llm_start(domain_name, model=model_id)
         response = chain.invoke({
             "query": state["query"],
             "existing_context": existing_context,
@@ -50,7 +52,8 @@ def create_domain_node(domain_name: str, domain_description: str):
         
         # Update state domain outputs
         current_outputs = state.get("domain_outputs", {})
-        current_outputs[domain_name] = response.content
+        out = response.content if isinstance(response.content, str) else str(response.content)
+        current_outputs[domain_name] = out
         return {"domain_outputs": current_outputs}
     
     return domain_node

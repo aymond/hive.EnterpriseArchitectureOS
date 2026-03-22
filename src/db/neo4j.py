@@ -186,7 +186,7 @@ class Neo4jClient:
         results = self.query(cypher, {"email": email})
         return results[0]["u"] if results else None
 
-    def create_user(self, email, hashed_password, full_name, tenant_id):
+    def create_user(self, email, hashed_password, full_name, tenant_id, llm_model: Optional[str] = None):
         """Creates a new user and links them to a tenant."""
         cypher = """
         MERGE (t:Tenant {id: $tenant_id})
@@ -194,6 +194,7 @@ class Neo4jClient:
         SET u.password = $hashed_password,
             u.full_name = $full_name,
             u.tenant_id = $tenant_id,
+            u.llm_model = $llm_model,
             u.created_at = datetime()
         MERGE (u)-[:MEMBER_OF]->(t)
         RETURN u.email as email
@@ -202,8 +203,26 @@ class Neo4jClient:
             "email": email,
             "hashed_password": hashed_password,
             "full_name": full_name,
-            "tenant_id": tenant_id
+            "tenant_id": tenant_id,
+            "llm_model": llm_model or "gpt-4o",
         })
+
+    def get_user_llm_model(self, email: str) -> Optional[str]:
+        """Returns stored llm_model or None if user missing."""
+        cypher = "MATCH (u:User {email: $email}) RETURN u.llm_model as llm_model"
+        results = self.query(cypher, {"email": email})
+        if not results:
+            return None
+        return results[0].get("llm_model")
+
+    def set_user_llm_model(self, email: str, llm_model: str):
+        """Persist preferred OpenAI chat model id on the user."""
+        cypher = """
+        MATCH (u:User {email: $email})
+        SET u.llm_model = $llm_model
+        RETURN u.email as email
+        """
+        return self.query(cypher, {"email": email, "llm_model": llm_model})
     def update_user_api_keys(self, email: str, encrypted_openai: Optional[str] = None, encrypted_tavily: Optional[str] = None):
         """Stores the symmetrically encrypted API keys on the User node."""
         sets = []

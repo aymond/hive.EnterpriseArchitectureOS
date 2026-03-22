@@ -1,12 +1,34 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { User, Mail, Database, LogOut, ArrowLeft, Shield } from 'lucide-react';
+import { User, Mail, Database, LogOut, ArrowLeft, Shield, Cpu } from 'lucide-react';
 import Link from 'next/link';
+import { fetchLlmModels, updateLlmModel } from '@/app/actions';
 
 export default function ProfilePage() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, token, logout, isLoading, refreshProfile } = useAuth();
+  const [llmModels, setLlmModels] = useState<string[]>([]);
+  const [llmDefault, setLlmDefault] = useState('gpt-4o');
+  const [selectedLlm, setSelectedLlm] = useState('gpt-4o');
+  const [llmSaving, setLlmSaving] = useState(false);
+  const [llmMessage, setLlmMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetchLlmModels();
+      if (res.success) {
+        setLlmModels(res.models);
+        setLlmDefault(res.defaultModel);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (user?.llm_model) {
+      setSelectedLlm(user.llm_model);
+    }
+  }, [user?.llm_model]);
 
   if (isLoading) {
     return (
@@ -86,6 +108,54 @@ export default function ProfilePage() {
                 Your account is currently scoped to the <span className="text-blue-400 font-mono">{user.tenant_id}</span> organization. 
                 All architectural reports and capability maps are strictly isolated to this tenant.
               </p>
+            </div>
+
+            <div className="mt-10 p-6 bg-zinc-950/80 border border-white/10 rounded-2xl space-y-4">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <Cpu className="w-5 h-5 text-indigo-400" />
+                LLM model
+              </div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Choose which OpenAI chat model runs for all agents (coordinator, domains, research, quality, persistence, discovery). Default:{' '}
+                <span className="text-indigo-400 font-mono">{llmDefault}</span>.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <select
+                  value={selectedLlm}
+                  onChange={(e) => setSelectedLlm(e.target.value)}
+                  className="flex-1 bg-black/50 border border-white/10 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  disabled={!llmModels.length}
+                >
+                  {(llmModels.length ? llmModels : [selectedLlm]).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={llmSaving || !token || selectedLlm === user?.llm_model}
+                  onClick={async () => {
+                    if (!token) return;
+                    setLlmSaving(true);
+                    setLlmMessage(null);
+                    const res = await updateLlmModel(token, selectedLlm);
+                    setLlmSaving(false);
+                    if (res.success) {
+                      setLlmMessage('Saved.');
+                      await refreshProfile();
+                    } else {
+                      setLlmMessage(res.error || 'Save failed');
+                    }
+                  }}
+                  className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  {llmSaving ? 'Saving…' : 'Save model'}
+                </button>
+              </div>
+              {llmMessage && (
+                <p className={`text-sm ${llmMessage === 'Saved.' ? 'text-emerald-400' : 'text-red-400'}`}>{llmMessage}</p>
+              )}
             </div>
           </div>
         </div>

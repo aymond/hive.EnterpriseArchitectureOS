@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.agents.llm_logging import log_llm_start, log_llm_complete
+from src.agents.model_util import resolve_chat_model
 
 def coordinator_agent(state: AgentState):
     """Chief EA Coordinator - Analyzes the user request and determines which domains to engage."""
@@ -18,14 +19,15 @@ def coordinator_agent(state: AgentState):
     ])
     
     openai_api_key = state.get("openai_api_key")
+    model_id = resolve_chat_model(state)
     llm = ChatOpenAI(
-        model="gpt-4o",
+        model=model_id,
         temperature=0,
         api_key=SecretStr(openai_api_key) if openai_api_key else None
     )
     chain = prompt | llm
     
-    log_llm_start("Coordinator", model="gpt-4o")
+    log_llm_start("Coordinator", model=model_id)
     response = chain.invoke({"query": state["query"]})
     log_llm_complete("Coordinator")
     response_content = response.content if isinstance(response.content, str) else "[]"
@@ -44,8 +46,9 @@ def coordinator_agent(state: AgentState):
 def synthesis_agent(state: AgentState):
     """Synthesizes the final EA response from all gathered domain outputs and research."""
     openai_api_key = state.get("openai_api_key")
+    model_id = resolve_chat_model(state)
     llm = ChatOpenAI(
-        model="gpt-4o",
+        model=model_id,
         temperature=0,
         api_key=SecretStr(openai_api_key) if openai_api_key else None
     )
@@ -69,7 +72,7 @@ def synthesis_agent(state: AgentState):
                      "Optional context — Research results:\n{research_results}")
         ])
         chain = prompt | llm
-        log_llm_start("Synthesizer", model="gpt-4o", mode="governance_rejected")
+        log_llm_start("Synthesizer", model=model_id, mode="governance_rejected")
         response = chain.invoke({
             "query": state["query"],
             "domain_outputs": state.get("domain_outputs", {}),
@@ -110,7 +113,7 @@ def synthesis_agent(state: AgentState):
     ])
     chain = prompt | llm
 
-    log_llm_start("Synthesizer", model="gpt-4o", mode="full_proposal")
+    log_llm_start("Synthesizer", model=model_id, mode="full_proposal")
     response = chain.invoke({
         "query": state["query"],
         "domain_outputs": state.get("domain_outputs", {}),
