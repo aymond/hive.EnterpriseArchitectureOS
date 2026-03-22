@@ -221,6 +221,103 @@ export async function changePassword(
   }
 }
 
+export type CapabilityDomainSummary = {
+  name: string;
+  slug: string;
+  purpose: string;
+  capability_count: number;
+};
+
+export async function fetchCapabilityDomains(authToken: string) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/capabilities/domains`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status}: ${body || res.statusText}`);
+    }
+    const data = (await res.json()) as { domains: CapabilityDomainSummary[] };
+    return { success: true as const, domains: data.domains };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export type CatalogCapability = {
+  name: string;
+  slug: string;
+  description: string;
+  parent_name: string | null;
+  sources: string[];
+};
+
+export async function fetchCapabilitiesForDomain(domainSlug: string, authToken: string) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(
+      `${backendUrl}/capabilities/domains/${encodeURIComponent(domainSlug)}`,
+      {
+        headers: { Authorization: `Bearer ${authToken}` },
+        cache: "no-store",
+      }
+    );
+    if (res.status === 404) {
+      return { success: false as const, notFound: true as const, error: "Domain not found" };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status}: ${body || res.statusText}`);
+    }
+    const data = (await res.json()) as {
+      domain: { name: string; slug: string; purpose: string };
+      capabilities: CatalogCapability[];
+    };
+    return { success: true as const, data };
+  } catch (error: any) {
+    return { success: false as const, notFound: false as const, error: error.message };
+  }
+}
+
+export async function fetchCapabilityDetail(
+  domainSlug: string,
+  capabilitySlug: string,
+  authToken: string
+) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(
+      `${backendUrl}/capabilities/domains/${encodeURIComponent(domainSlug)}/capabilities/${encodeURIComponent(capabilitySlug)}`,
+      {
+        headers: { Authorization: `Bearer ${authToken}` },
+        cache: "no-store",
+      }
+    );
+    if (res.status === 404) {
+      return { success: false as const, notFound: true as const, error: "Not found" };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status}: ${body || res.statusText}`);
+    }
+    const data = (await res.json()) as {
+      domain: { name: string; slug: string; purpose: string };
+      capability: {
+        name: string;
+        slug: string;
+        description: string;
+        parent_name: string | null;
+        sources: string[];
+      };
+    };
+    return { success: true as const, data };
+  } catch (error: any) {
+    return { success: false as const, notFound: false as const, error: error.message };
+  }
+}
+
 export async function updateApiKey(authToken: string, apiKey: string, tavilyKey: string) {
   const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
   try {

@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from src.api.auth import router as auth_router, get_current_user
+from src.api.capabilities import router as capabilities_router
 from src.db.neo4j import neo4j_client
 from src.graph.workflow import graph
 from src.registry.capability_registry import DEFAULT_REGISTRY_PATH, load_capability_registry
@@ -110,6 +111,7 @@ app.add_middleware(
 
 # Include the Authentication Router
 app.include_router(auth_router)
+app.include_router(capabilities_router)
 
 @app.get("/")
 def read_root():

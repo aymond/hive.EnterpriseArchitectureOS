@@ -493,6 +493,18 @@ class Neo4jClient:
         """
         return self.query(cypher, {"tenant_id": tenant_id})
 
+    def get_capabilities_with_domains_for_tenant(self, tenant_id: str):
+        """Capabilities linked to domains via HAS_CAPABILITY, with optional PARENT_OF parent name."""
+        cypher = """
+        MATCH (d:Domain {tenant_id: $tenant_id})-[:HAS_CAPABILITY]->(c:Capability {tenant_id: $tenant_id})
+        OPTIONAL MATCH (parent:Capability {tenant_id: $tenant_id})-[:PARENT_OF]->(c)
+        RETURN d.name AS domain, c.name AS name,
+               coalesce(c.description, '') AS description,
+               parent.name AS parent_name
+        ORDER BY d.name, toLower(c.name)
+        """
+        return self.query(cypher, {"tenant_id": tenant_id})
+
     def get_user_by_email(self, email):
         """Retrieves a user by their email address (exact match)."""
         cypher = "MATCH (u:User {email: $email}) RETURN u"

@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Mermaid from "@/components/Mermaid";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, History } from "lucide-react";
+import { LogOut, History, Layers } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -224,14 +224,28 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Repository Toggle Button - Fixed Floating */}
-        <button 
-          onClick={() => setShowRepo(true)}
-          className="fixed top-8 left-8 z-40 p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-indigo-400 hover:border-indigo-500/50 transition duration-300 shadow-2xl group flex items-center gap-3"
-        >
-          <History className="w-6 h-6" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">Repository</span>
-        </button>
+        <div className="fixed top-8 left-8 z-40 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowRepo(true)}
+            className="p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-indigo-400 hover:border-indigo-500/50 transition duration-300 shadow-2xl group flex items-center gap-3"
+          >
+            <History className="w-6 h-6" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">
+              Repository
+            </span>
+          </button>
+          <Link
+            href="/capabilities"
+            className="p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/40 transition duration-300 shadow-2xl group flex items-center gap-3"
+            title="Capability catalog"
+          >
+            <Layers className="w-6 h-6" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">
+              Capabilities
+            </span>
+          </Link>
+        </div>
 
         <div className="w-full flex justify-center">
           <div className="max-w-5xl w-full space-y-16 px-6 py-12 md:py-24">
