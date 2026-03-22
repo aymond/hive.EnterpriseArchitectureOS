@@ -72,7 +72,13 @@ export async function fetchApiKeyStatus(authToken: string) {
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
-    return { success: true, hasKey: data.has_openai_key, hasTavilyKey: data.has_tavily_key };
+    return {
+      success: true,
+      hasKey: data.has_openai_key,
+      hasTavilyKey: data.has_tavily_key,
+      requiresOpenAiApiKey: data.requires_openai_api_key ?? true,
+      llmProvider: data.llm_provider as string | undefined,
+    };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -108,6 +114,106 @@ export async function updateLlmModel(authToken: string, llm_model: string) {
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       throw new Error(errBody || `API error: ${res.status}`);
+    }
+    return { success: true as const };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export type LlmConfigResponse = {
+  providers: { id: string; label: string }[];
+  openai_models: string[];
+  default_openai_model: string;
+  default_compatible_model: string;
+  example_compatible_base_url: string;
+  example_compatible_base_url_docker?: string;
+  compatible_base_url_hint?: string;
+};
+
+export async function fetchLlmConfig() {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/llm-config`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = (await res.json()) as LlmConfigResponse;
+    return { success: true as const, config: data };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export async function updateLlmSettings(
+  authToken: string,
+  payload: { llm_provider: string; llm_model: string; openai_base_url?: string }
+) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/llm-settings`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(errBody || `API error: ${res.status}`);
+    }
+    return { success: true as const };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export async function updateProfile(
+  authToken: string,
+  payload: { full_name: string; email: string }
+) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/profile`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || res.statusText);
+      throw new Error(detail || `API error: ${res.status}`);
+    }
+    return {
+      success: true as const,
+      user: data.user,
+      access_token: data.access_token as string | undefined,
+    };
+  } catch (error: any) {
+    return { success: false as const, error: error.message };
+  }
+}
+
+export async function changePassword(
+  authToken: string,
+  payload: { current_password: string; new_password: string }
+) {
+  const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+  try {
+    const res = await fetch(`${backendUrl}/auth/password`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || res.statusText);
+      throw new Error(detail || `API error: ${res.status}`);
     }
     return { success: true as const };
   } catch (error: any) {

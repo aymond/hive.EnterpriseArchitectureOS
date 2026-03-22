@@ -3,10 +3,13 @@ import logging
 import re
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
-from langchain_openai import ChatOpenAI
+from src.db.vendor_canonical import (
+    capability_names_from_registry_json,
+    vendor_naming_hint_for_prompts,
+)
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import SecretStr
 import os
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
@@ -69,8 +72,9 @@ def persistence_agent(state: AgentState):
     from multi-agent outputs and commits it to Neo4j.
     """
     
-    if state.get("quality_status") != "APPROVED":
-        logger.info(f"Governance check status is {state.get('quality_status')}. Skipping persistence.")
+    qs = state.get("quality_status")
+    if qs not in ("APPROVED", "APPROVED_WITH_WARNINGS"):
+        logger.info(f"Governance check status is {qs}. Skipping persistence.")
         return {"status": "SKIPPED_PERSISTENCE"}
     
     domain_outputs = state.get("domain_outputs", {})
@@ -91,6 +95,23 @@ def persistence_agent(state: AgentState):
     for res in research_results:
         combined_context += f"--- Sourcing/Research Output ---\n{res.get('sourcing_recommendations', '')}\n\n"
 
+    tenant_id = state.get("tenant_id")
+    cap_names_ctx = capability_names_from_registry_json(reg)
+    if tenant_id and cap_names_ctx:
+        try:
+            vrows = neo4j_client.get_vendor_capability_context(tenant_id, cap_names_ctx)
+            if vrows:
+                combined_context += (
+                    "Existing Vendor→Product links in the knowledge graph for registry capabilities "
+                    "(reuse exact vendor names when the same company is meant; avoid alternate spellings):\n"
+                    + json.dumps(vrows, indent=2)
+                    + "\n\n"
+                )
+        except Exception as ex:
+            logger.warning("Could not load vendor/capability context from Neo4j: %s", ex)
+
+    combined_context += vendor_naming_hint_for_prompts() + "\n\n"
+
     extractor_prompt = ChatPromptTemplate.from_messages([
         ("system", "You are an EA Data Architect. Your task is to transform technical agent outputs into a formal TOGAF-aligned graph structure.\n"
                    "Extract the following entities and relationships as a JSON object:\n"
@@ -106,19 +127,16 @@ def persistence_agent(state: AgentState):
                    "- When the registry lists a capability, set 'domain' to that capability's owning_domain from the registry.\n"
                    "- 'applications': {{name, description, fulfilled_capability_name}}\n"
                    "- 'technologies': {{name, category, supported_app_name}}\n"
-                   "- 'vendors': {{name, product, fulfilling_entity_name, entity_type (Capability|Application|Technology)}}\n\n"
+                   "- 'vendors': {{name, product, fulfilling_entity_name, entity_type (Capability|Application|Technology)}}\n"
+                   "- For vendors: prefer names from the existing graph list above when it is the same company; "
+                   "follow the canonical vendor naming rules in the context.\n\n"
                    "Respond ONLY with a valid JSON object."),
         ("user", "Context to parse:\n{context}")
     ])
 
     try:
-        openai_api_key = state.get("openai_api_key")
         model_id = resolve_chat_model(state)
-        llm = ChatOpenAI(
-            model=model_id,
-            temperature=0,
-            api_key=SecretStr(openai_api_key) if openai_api_key else None
-        )
+        llm = get_chat_llm(state, temperature=0)
         chain = extractor_prompt | llm
         log_llm_start("Persistence", model=model_id)
         response = chain.invoke({"context": combined_context})
@@ -135,7 +153,6 @@ def persistence_agent(state: AgentState):
         graph_data = json.loads(content)
         _reconcile_domains_with_registry(graph_data, state.get("capability_registry") or "{}")
         _dedupe_capabilities_by_name(graph_data)
-        tenant_id = state.get("tenant_id")
         capability_domain_by_name: dict[str, str] = {}
         parent_links: list[tuple[str, str]] = []
         validation_errors: list[str] = []
@@ -223,10 +240,10 @@ def persistence_agent(state: AgentState):
             if v_name and fulfilling:
                 neo4j_client.upsert_vendor_product(
                     tenant_id,
-                    v_name, 
-                    product or "", 
-                    v.get("entity_type") or "Capability", 
-                    fulfilling
+                    v_name,
+                    product or "",
+                    v.get("entity_type") or "Capability",
+                    fulfilling,
                 )
 
         involved_capabilities = [cap.get("name") for cap in graph_data.get("capabilities", []) if cap.get("name")]

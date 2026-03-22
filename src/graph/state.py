@@ -18,8 +18,14 @@ class AgentState(TypedDict):
     # Decrypted Tavily API Key provided by the user profile
     tavily_api_key: Optional[str]
 
-    # OpenAI chat model id from user profile (e.g. gpt-4o)
+    # OpenAI chat model id from user profile (e.g. gpt-4o) or Ollama tag when compatible
     llm_model: str
+
+    # openai | openai_compatible (Ollama, LM Studio, vLLM, …)
+    llm_provider: str
+
+    # Base URL for OpenAI-compatible APIs (e.g. http://localhost:11434/v1); empty for OpenAI cloud
+    openai_base_url: Optional[str]
     
     # Track which domains should be engaged
     required_domains: List[str]
@@ -37,6 +43,8 @@ class AgentState(TypedDict):
     # Status of the EA quality check
     quality_status: str
     quality_feedback: str
+    # Technical governance notes for operators / logs (not shown in end-user UI)
+    governance_admin_log: str
     
     # List of capabilities involved in this specific request
     involved_capabilities: List[str]

@@ -1,83 +1,110 @@
+import json
+import logging
+
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+
 from src.graph.state import AgentState
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
+logger = logging.getLogger(__name__)
+
+
+def _strip_code_fence(text: str) -> str:
+    t = text.strip()
+    if t.startswith("```json"):
+        t = t[7:]
+    elif t.startswith("```"):
+        t = t[3:]
+    if t.endswith("```"):
+        t = t[:-3]
+    return t.strip()
+
+
 def quality_check_agent(state: AgentState):
-    """Quality Check / Governance Agent."""
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are the Chief Enterprise Architecture Governance Reviewer.\n"
-                   "Review the consolidated capability models and the proposed vendor research.\n"
-                   "Check for consistency, alignment with EA principles (like DRY, strategic alignment, no vendor lock-in), and completeness.\n"
-                   "Enforce structure rules:\n"
-                   "- Every capability must be assigned to a domain.\n"
-                   "- Capability parent-child relationships must not cross domains.\n"
-                   "- Every process must be linked to one or more capabilities.\n"
-                   "- When Canonical Capability Registry is provided, capability names must have a single owning domain "
-                   "consistent with that registry; domain expert JSON must not contradict it.\n"
-                   "- Process objects must use the key 'name' for the process title (not 'process_name').\n\n"
-                   "You MUST respond using one of the two formats below (no other opening line):\n\n"
-                   "If the work is acceptable:\n"
-                   "STATUS: APPROVED\n"
-                   "Optional: one short sentence summarizing what passed review.\n\n"
-                   "If the work must be rejected:\n"
-                   "STATUS: REJECTED\n"
-                   "## Rejection reason\n"
-                   "- Use bullet points. Be specific (what failed, which rule or gap).\n"
-                   "## How to improve\n"
-                   "- Use bullet points. Give concrete, actionable fixes (e.g. add domain X to capability Y, "
-                   "link process Z to capabilities A and B, fix parent-child across domains).\n"
-                   "## Suggested next steps\n"
-                   "- Short checklist the user or agents can follow before re-submitting.\n\n"
-                   "Do not approve and reject in the same response. The first line must be STATUS: APPROVED or STATUS: REJECTED."),
-        ("user", "Request: {query}\n\n"
-                 "Canonical Capability Registry (JSON):\n{capability_registry}\n\n"
-                 "Domain Outputs: {domain_outputs}\n\n"
-                 "Research Results: {research_results}")
-    ])
-    
-    openai_api_key = state.get("openai_api_key")
-    model_id = resolve_chat_model(state)
-    llm = ChatOpenAI(
-        model=model_id,
-        temperature=0,
-        api_key=SecretStr(openai_api_key) if openai_api_key else None
+    """Soft governance review: never blocks publication; surfaces user notice + admin log."""
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                "You are the Chief Enterprise Architecture Governance Reviewer.\n"
+                "Outputs have already passed an automated remediation step. Your job is to ASSESS, not to block delivery.\n\n"
+                "You MUST NEVER use STATUS: REJECTED or tell the user to manually fix domain/capability/process relationships.\n"
+                "Return ONLY valid JSON (no markdown, no prose outside JSON) with exactly these keys:\n"
+                '{{\n'
+                '  "status": "APPROVED" | "APPROVED_WITH_WARNINGS",\n'
+                '  "user_summary": "<1–3 short sentences, plain language, reassuring; no instructions to edit the graph>",\n'
+                '  "admin_log": "<technical notes for operators: residual risks, assumptions, anything an admin should monitor>"\n'
+                "}}\n\n"
+                "Use APPROVED when alignment with the registry and process rules looks good after remediation.\n"
+                "Use APPROVED_WITH_WARNINGS when minor residual ambiguity remains — still ship the report.\n"
+                "user_summary must not ask the user to assign domains, relink processes, or re-run with fixes.\n"
+                "admin_log may include concrete technical detail for logs and administrators only.\n",
+            ),
+            (
+                "user",
+                "Request: {query}\n\n"
+                "Canonical Capability Registry (JSON):\n{capability_registry}\n\n"
+                "Domain Outputs (post-remediation):\n{domain_outputs}\n\n"
+                "Research Results:\n{research_results}\n",
+            ),
+        ]
     )
+
+    model_id = resolve_chat_model(state)
+    llm = get_chat_llm(state, temperature=0)
     chain = prompt | llm
-    
+
     log_llm_start("QualityCheck", model=model_id)
-    response = chain.invoke({
-        "query": state.get("query"),
-        "capability_registry": state.get("capability_registry") or "{}",
-        "domain_outputs": state.get("domain_outputs", {}),
-        "research_results": state.get("research_results", [])
-    })
+    response = chain.invoke(
+        {
+            "query": state.get("query"),
+            "capability_registry": state.get("capability_registry") or "{}",
+            "domain_outputs": state.get("domain_outputs", {}),
+            "research_results": state.get("research_results", []),
+        }
+    )
     log_llm_complete("QualityCheck")
 
     raw = response.content if isinstance(response.content, str) else str(response.content)
-    text = raw.strip()
-    first_line = text.split("\n", 1)[0].strip().upper() if text else ""
+    text = _strip_code_fence(raw)
 
-    if first_line.startswith("STATUS:"):
-        if "REJECT" in first_line:
-            status = "REJECTED"
-        elif "APPROV" in first_line:
+    user_summary = "Governance review completed."
+    admin_log = text[:8000] if text else ""
+    status = "APPROVED_WITH_WARNINGS"
+
+    try:
+        obj = json.loads(text)
+        st = obj.get("status", "")
+        if st == "APPROVED":
             status = "APPROVED"
+        elif st == "APPROVED_WITH_WARNINGS":
+            status = "APPROVED_WITH_WARNINGS"
         else:
-            status = "REJECTED"
-    else:
-        # Legacy responses without STATUS line
-        upper = text.upper()
-        if "STATUS: REJECTED" in upper:
-            status = "REJECTED"
-        elif "STATUS: APPROVED" in upper:
+            status = "APPROVED_WITH_WARNINGS"
+        if isinstance(obj.get("user_summary"), str) and obj["user_summary"].strip():
+            user_summary = obj["user_summary"].strip()
+        if isinstance(obj.get("admin_log"), str) and obj["admin_log"].strip():
+            admin_log = obj["admin_log"].strip()
+    except json.JSONDecodeError:
+        # Legacy markdown / free text — treat as warning, keep report flowing
+        upper = raw.upper()
+        if "REJECT" in upper or "REJECTED" in upper:
+            status = "APPROVED_WITH_WARNINGS"
+            user_summary = (
+                "A governance pass noted some modeling nuances; your report is still provided below. "
+                "Our team reviews technical details in system logs."
+            )
+        elif "APPROVED" in upper and "WARN" not in upper:
             status = "APPROVED"
-        else:
-            status = "APPROVED" if "APPROVED" in upper and "REJECT" not in upper else "REJECTED"
+            user_summary = "Governance review completed with no material warnings."
+        admin_log = f"(Unparsed reviewer output)\n{raw[:8000]}"
+
+    logger.info("Governance review (admin_log):\n%s", admin_log[:16000])
 
     return {
         "quality_status": status,
-        "quality_feedback": raw,
+        "quality_feedback": user_summary,
+        "governance_admin_log": admin_log,
     }

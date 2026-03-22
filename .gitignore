@@ -17,3 +17,8 @@ frontend/build/
 
 # IDE
 .vscode/
+
+# Generated data exports (e.g. scripts/graph_to_mermaid.py → data/*.mmd)
+data/*.mmd
+
+scripts/

@@ -2,9 +2,8 @@ import logging
 import json
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import SecretStr
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
@@ -24,13 +23,8 @@ def discovery_agent(state: AgentState):
         return {"status": "SKIPPED_DISCOVERY"}
         
     try:
-        openai_api_key = state.get("openai_api_key")
         model_id = resolve_chat_model(state)
-        llm = ChatOpenAI(
-            model=model_id,
-            temperature=0,
-            api_key=SecretStr(openai_api_key) if openai_api_key else None,
-        )
+        llm = get_chat_llm(state, temperature=0)
         # 1. Get all capabilities from the graph for context
         all_caps = neo4j_client.get_all_capabilities(tenant_id)
         

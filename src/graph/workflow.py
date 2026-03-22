@@ -7,6 +7,7 @@ from src.agents.domain_agents import (
     security_agent, data_agent, process_agent, compliance_agent
 )
 from src.agents.research_agent import research_agent
+from src.agents.governance_remediation import governance_remediation_agent
 from src.agents.validation_agents import quality_check_agent
 from src.agents.persistence import persistence_agent
 from src.agents.archivist import archive_agent
@@ -27,6 +28,7 @@ builder.add_node("Data", data_agent)
 builder.add_node("Process", process_agent)
 builder.add_node("Compliance", compliance_agent)
 builder.add_node("Research", research_agent)
+builder.add_node("GovernanceRemediation", governance_remediation_agent)
 builder.add_node("QualityCheck", quality_check_agent)
 builder.add_node("Persistence", persistence_agent)
 builder.add_node("Discovery", discovery_agent)
@@ -74,8 +76,9 @@ builder.add_edge("Data", "Research")
 builder.add_edge("Process", "Research")
 builder.add_edge("Compliance", "Research")
 
-# Research goes to Quality Check
-builder.add_edge("Research", "QualityCheck")
+# Research → automated governance fixes → soft quality check
+builder.add_edge("Research", "GovernanceRemediation")
+builder.add_edge("GovernanceRemediation", "QualityCheck")
 
 # Split paths at QualityCheck
 builder.add_edge("QualityCheck", "Persistence")

@@ -134,6 +134,11 @@ export default function LoginPage() {
                   placeholder="••••••••"
                 />
               </div>
+              {!isLogin && (
+                <p className="text-xs text-zinc-500 ml-1 leading-relaxed">
+                  Use at least 12 characters with at least one letter and one number.
+                </p>
+              )}
             </div>
 
             {!isLogin && (

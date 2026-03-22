@@ -1,0 +1,68 @@
+{
+  "domains": [
+    { "name": "Compliance", "purpose": "Registry slice: AI assurance, ethics, and compliance capabilities." },
+    { "name": "Enterprise", "purpose": "Registry slice: procurement and corporate financial capabilities." }
+  ],
+  "capabilities": [
+    {
+      "name": "AI Compliance Auditing",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "AI Ethics and Bias Monitoring",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "AI Governance",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "AI Risk Management",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "AI Transparency and Explainability",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "Compliance Management System (CMS)",
+      "owning_domain": "Compliance",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "Procurement",
+      "owning_domain": "Enterprise",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "Procurement Compliance Management",
+      "owning_domain": "Enterprise",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "Procurement Management",
+      "owning_domain": "Enterprise",
+      "parent_capability_name": null,
+      "description": ""
+    },
+    {
+      "name": "Treasury Management",
+      "owning_domain": "Enterprise",
+      "parent_capability_name": null,
+      "description": ""
+    }
+  ]
+}

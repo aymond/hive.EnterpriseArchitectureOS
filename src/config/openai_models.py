@@ -1,6 +1,8 @@
-"""User-selectable OpenAI chat models (validated server-side)."""
+"""User-selectable OpenAI chat models (validated server-side for OpenAI cloud)."""
 
 from __future__ import annotations
+
+from src.config.llm_providers import DEFAULT_COMPAT_LLM_MODEL, LLM_PROVIDER_OPENAI_COMPATIBLE
 
 DEFAULT_LLM_MODEL = "gpt-4o"
 
@@ -18,3 +20,15 @@ def normalize_llm_model(model: str | None) -> str:
         return DEFAULT_LLM_MODEL
     cleaned = model.strip()
     return cleaned if cleaned in ALLOWED_LLM_MODELS else DEFAULT_LLM_MODEL
+
+
+def normalize_llm_model_for_provider(provider: str, model: str | None) -> str:
+    """OpenAI cloud: allowlist. OpenAI-compatible: any non-empty model id (Ollama tag, etc.)."""
+    if provider == LLM_PROVIDER_OPENAI_COMPATIBLE:
+        if not model or not isinstance(model, str) or not model.strip():
+            return DEFAULT_COMPAT_LLM_MODEL
+        cleaned = model.strip()
+        if len(cleaned) > 200:
+            cleaned = cleaned[:200]
+        return cleaned
+    return normalize_llm_model(model)

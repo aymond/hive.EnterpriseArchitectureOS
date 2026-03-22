@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchProposals, getProposalById, fetchApiKeyStatus, updateApiKey } from "./actions";
+import { useRouter } from "next/navigation";
+import { fetchProposals, getProposalById, fetchApiKeyStatus } from "./actions";
 import { submitEARequestStream } from "@/lib/stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,6 +12,7 @@ import { LogOut, History } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
+  const router = useRouter();
   const { user, token, logout, isLoading } = useAuth();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,11 +20,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [showRepo, setShowRepo] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [tavilyKeyInput, setTavilyKeyInput] = useState("");
+  const [requiresOpenAiApiKey, setRequiresOpenAiApiKey] = useState(true);
   const [activeNodes, setActiveNodes] = useState<{node: string, duration?: number}[]>([]);
   const [totalTime, setTotalTime] = useState<number | null>(null);
 
@@ -38,6 +38,7 @@ export default function Home() {
     if (res.success) {
       setHasApiKey(res.hasKey);
       setHasTavilyKey(res.hasTavilyKey || false);
+      setRequiresOpenAiApiKey(res.requiresOpenAiApiKey ?? true);
     }
   };
 
@@ -69,8 +70,9 @@ export default function Home() {
     e.preventDefault();
     if (!query.trim() || !token) return;
 
-    if (!hasApiKey || !hasTavilyKey) {
-      setShowSettings(true);
+    const needOpenAi = requiresOpenAiApiKey && !hasApiKey;
+    if (needOpenAi || !hasTavilyKey) {
+      router.push("/profile#integrations");
       return;
     }
 
@@ -200,8 +202,8 @@ export default function Home() {
         
         {/* User Profile / Logout - Top Right */}
         <div className="fixed top-8 right-8 z-40 flex items-center gap-3">
-          <button 
-            onClick={() => setShowSettings(true)}
+          <Link
+            href="/profile"
             className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-400 hover:text-white hover:border-white/20 transition duration-300 shadow-2xl group"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-white/10">
@@ -210,8 +212,9 @@ export default function Home() {
             <div className="flex flex-col pr-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 group-hover:text-neutral-300 transition">{user.tenant_id}</span>
               <span className="text-xs font-bold text-white tracking-tight">{user.full_name}</span>
+              <span className="text-[10px] text-neutral-600 group-hover:text-indigo-400/90 transition">Profile &amp; settings</span>
             </div>
-          </button>
+          </Link>
           <button 
             onClick={logout}
             className="p-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/20 transition duration-300 shadow-2xl"
@@ -229,68 +232,6 @@ export default function Home() {
           <History className="w-6 h-6" />
           <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-xs tracking-widest uppercase">Repository</span>
         </button>
-
-        {showSettings && token && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl shadow-indigo-500/10">
-              <h2 className="text-2xl font-black text-white mb-2">Account Settings</h2>
-              <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
-                Connect your personal API Keys to run queries. Your keys are symmetrically encrypted using Fernet AES-128 before they touch our database.
-              </p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">OpenAI API Key</label>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••" : "sk-proj-xxxxxxxx..."}
-                    className="w-full bg-black/50 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Tavily Search API Key</label>
-                  <input
-                    type="password"
-                    value={tavilyKeyInput}
-                    onChange={(e) => setTavilyKeyInput(e.target.value)}
-                    placeholder={hasTavilyKey ? "••••••••••••••••••••••••••••••••" : "tvly-xxxxxxxx..."}
-                    className="w-full bg-black/50 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
-                  />
-                </div>
-                
-                <div className="flex gap-3 mt-6">
-                  <button 
-                    onClick={() => setShowSettings(false)}
-                    className="flex-1 py-3 rounded-xl bg-neutral-800 text-neutral-300 font-bold text-sm tracking-wide hover:bg-neutral-700 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      // Only update if at least one input is provided. If only one is provided, the API updates just that one.
-                      if (!apiKeyInput.trim() && !tavilyKeyInput.trim()) return;
-                      
-                      // Using the existing updateApiKey action which we will modify next to accept both keys
-                      await updateApiKey(token, apiKeyInput.trim(), tavilyKeyInput.trim());
-                      
-                      if (apiKeyInput.trim()) setHasApiKey(true);
-                      if (tavilyKeyInput.trim()) setHasTavilyKey(true);
-                      
-                      setShowSettings(false);
-                      setApiKeyInput("");
-                      setTavilyKeyInput("");
-                    }}
-                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm tracking-wide hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30"
-                  >
-                    Save Keys
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="w-full flex justify-center">
           <div className="max-w-5xl w-full space-y-16 px-6 py-12 md:py-24">
@@ -398,8 +339,20 @@ export default function Home() {
                 />
                 <StatusCard 
                   label="Governance" 
-                  value={result.quality_check} 
-                  status={result.quality_check === "APPROVED" ? "success" : "error"}
+                  value={
+                    result.quality_check === "APPROVED_WITH_WARNINGS"
+                      ? "Approved · notice"
+                      : result.quality_check === "APPROVED"
+                        ? "Approved"
+                        : String(result.quality_check ?? "—")
+                  }
+                  status={
+                    result.quality_check === "APPROVED"
+                      ? "success"
+                      : result.quality_check === "APPROVED_WITH_WARNINGS"
+                        ? "warning"
+                        : "error"
+                  }
                 />
                 {totalTime && (
                 <StatusCard 
@@ -420,9 +373,9 @@ export default function Home() {
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500/50 via-cyan-500/50 to-emerald-500/50 opacity-30 group-hover/doc:opacity-100 transition duration-1000"></div>
                 
                 <div className="p-10 md:p-20">
-                  {result.quality_check && result.quality_check !== "APPROVED" && result.quality_feedback && (
+                  {result.quality_check === "APPROVED_WITH_WARNINGS" && result.quality_feedback && (
                     <div className="mb-10 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-5 text-amber-100">
-                      <p className="text-xs font-black uppercase tracking-widest text-amber-400 mb-2">Governance feedback (reviewer)</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-amber-400 mb-2">Governance notice</p>
                       <div className="prose prose-invert prose-sm max-w-none text-amber-100/90 prose-headings:text-amber-200 prose-strong:text-amber-100">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.quality_feedback}</ReactMarkdown>
                       </div>
@@ -591,9 +544,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function StatusCard({ label, value, sub, status = "neutral" }: { label: string, value: string | number, sub?: string, status?: "success" | "error" | "neutral" }) {
+function StatusCard({ label, value, sub, status = "neutral" }: { label: string, value: string | number, sub?: string, status?: "success" | "warning" | "error" | "neutral" }) {
   const colors = {
     success: "text-emerald-400 bg-emerald-400/5 border-emerald-500/20 shadow-emerald-500/5",
+    warning: "text-amber-400 bg-amber-400/5 border-amber-500/20 shadow-amber-500/5",
     error: "text-red-400 bg-red-400/5 border-red-500/20 shadow-red-500/5",
     neutral: "text-indigo-400 bg-indigo-400/5 border-indigo-500/20 shadow-indigo-500/5",
   };

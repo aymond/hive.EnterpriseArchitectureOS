@@ -9,10 +9,9 @@ import json
 import logging
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 
 from src.graph.state import AgentState
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
@@ -64,13 +63,8 @@ def domain_steward_agent(state: AgentState):
         ]
     )
 
-    openai_api_key = state.get("openai_api_key")
     model_id = resolve_chat_model(state)
-    llm = ChatOpenAI(
-        model=model_id,
-        temperature=0,
-        api_key=SecretStr(openai_api_key) if openai_api_key else None,
-    )
+    llm = get_chat_llm(state, temperature=0)
     chain = prompt | llm
 
     log_llm_start("DomainSteward", model=model_id)

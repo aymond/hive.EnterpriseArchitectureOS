@@ -1,8 +1,7 @@
 import json
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 from src.graph.state import AgentState
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
@@ -18,13 +17,8 @@ def coordinator_agent(state: AgentState):
         ("user", "Request: {query}")
     ])
     
-    openai_api_key = state.get("openai_api_key")
     model_id = resolve_chat_model(state)
-    llm = ChatOpenAI(
-        model=model_id,
-        temperature=0,
-        api_key=SecretStr(openai_api_key) if openai_api_key else None
-    )
+    llm = get_chat_llm(state, temperature=0)
     chain = prompt | llm
     
     log_llm_start("Coordinator", model=model_id)
@@ -45,49 +39,17 @@ def coordinator_agent(state: AgentState):
 
 def synthesis_agent(state: AgentState):
     """Synthesizes the final EA response from all gathered domain outputs and research."""
-    openai_api_key = state.get("openai_api_key")
     model_id = resolve_chat_model(state)
-    llm = ChatOpenAI(
-        model=model_id,
-        temperature=0,
-        api_key=SecretStr(openai_api_key) if openai_api_key else None
-    )
+    llm = get_chat_llm(state, temperature=0)
 
     quality_status = state.get("quality_status", "UNKNOWN")
-    if quality_status == "REJECTED":
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are the Chief Enterprise Architect communicating a governance outcome to stakeholders.\n"
-                       "The quality review REJECTED this run. Do NOT present a full approved architecture proposal.\n"
-                       "Produce clear Markdown for the user with this exact structure:\n"
-                       "1) # Governance outcome: Rejected\n"
-                       "2) ## Summary — Briefly state that the proposal did not pass governance and reference the original request.\n"
-                       "3) ## Why it was rejected — Use bullet points. Base this ONLY on 'Governance review details' below; "
-                       "if a section is missing there, say so and quote what is available.\n"
-                       "4) ## How to improve — Use bullet points. Concrete, actionable changes (data model, process links, domains, etc.).\n"
-                       "5) ## Suggested next steps — Short checklist before re-running the analysis.\n"
-                       "Use professional tone. Do not invent violations not stated in the governance details."),
-            ("user", "Original request: {query}\n\n"
-                     "Canonical Capability Registry:\n{capability_registry}\n\n"
-                     "Governance review details (verbatim from reviewer):\n{quality_feedback}\n\n"
-                     "Optional context — Domain outputs (for your awareness only; do not override the reviewer):\n{domain_outputs}\n\n"
-                     "Optional context — Research results:\n{research_results}")
-        ])
-        chain = prompt | llm
-        log_llm_start("Synthesizer", model=model_id, mode="governance_rejected")
-        response = chain.invoke({
-            "query": state["query"],
-            "capability_registry": state.get("capability_registry") or "{}",
-            "domain_outputs": state.get("domain_outputs", {}),
-            "research_results": state.get("research_results", []),
-            "quality_feedback": state.get("quality_feedback", "No details provided."),
-        })
-        log_llm_complete("Synthesizer", mode="governance_rejected")
-        out = response.content if isinstance(response.content, str) else str(response.content)
-        return {"final_response": out}
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are the Chief Enterprise Architect.\n"
                    "Synthesize the consolidated findings from the domain experts and the vendor research into a final cohesive Enterprise Architecture proposal.\n"
+                   "The run is always delivered to the stakeholder: there is no 'rejected' path. If Quality Status is APPROVED_WITH_WARNINGS, "
+                   "add one calm sentence in ## Executive Summary noting that an automated governance pass recorded minor modeling notes for internal review — "
+                   "do NOT tell the user to manually fix domain, capability, or process relationships or to re-run the analysis.\n"
                    "FOLLOW THESE TECHNICAL WRITING GUIDELINES (inspired by Google Developer Documentation Style Guide):\n"
                    "- Use active voice and clear, concise language.\n"
                    "- Use a clear hierarchy with consistent header levels (H1 for title, H2 for major sections).\n"

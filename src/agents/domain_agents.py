@@ -1,13 +1,12 @@
 import json
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 from src.graph.state import AgentState
 from src.db.neo4j import neo4j_client
+from src.agents.llm_factory import get_chat_llm
 from src.agents.llm_logging import log_llm_start, log_llm_complete
 from src.agents.model_util import resolve_chat_model
 
-# We assume OPENAI_API_KEY is available in the AgentState
+# LLM credentials come from AgentState (OpenAI cloud or OpenAI-compatible base URL).
 def create_domain_node(domain_name: str, domain_description: str):
     """Factory function to create domain expert nodes."""
     prompt = ChatPromptTemplate.from_messages([
@@ -44,13 +43,8 @@ def create_domain_node(domain_name: str, domain_description: str):
     ])
     
     def domain_node(state: AgentState):
-        openai_api_key = state.get("openai_api_key")
         model_id = resolve_chat_model(state)
-        llm = ChatOpenAI(
-            model=model_id,
-            temperature=0,
-            api_key=SecretStr(openai_api_key) if openai_api_key else None
-        )
+        llm = get_chat_llm(state, temperature=0)
         chain = prompt | llm
         
         # Fetch existing capabilities from Neo4j for this domain
